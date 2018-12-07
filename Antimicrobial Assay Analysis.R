@@ -8,18 +8,29 @@ install.packages("agricolae")
 
 #Reset and read the data (row,col)
 rm(list=ls())
-makeAMATable = function(filename, everyHour=2,blankName="Blank"){
-  mydata <- read.table(filename,sep = ",", header=TRUE,row.names =1, check.names = F)
-  rownames(mydata)= (0:192*15)/60 #Make the row names representative of hours
+#before running this program label blank wells "blank" and empty wells "empty"
+makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
+  mydata <- read.table(filename,sep = ",", header=TRUE,row.names = 1, check.names = F)
+  rownames(mydata)= (0:(length(mydata[,1])-1))*15/60 #Make the row names representative of hours
+  #Fix column names
+  mydata = mydata[colnames(mydata)!="empty"] #remove columns labelled empty
   #Mean subtract the mean of the blanks from each row
-  blankAvg = rowMeans(mydata[,colnames(mydata)==blankName])
-  newData = mydata[,colnames(mydata)!=blankName] - blankAvg
+  blankAvg = rowMeans(mydata[,grepl(pattern = blankName,colnames(mydata))])
+  mydata = mydata[,grep(pattern = blankName,colnames(mydata),invert =T)] - blankAvg
   #Select only desired rows
-  newData = newData[as.numeric(rownames(newData))%%everyHour==0,]
-  newData
+  
+  ###this shit doesn't work yet
+  mydata = mydata[as.numeric(rownames(mydata))%%everyHour==0,]
+  write.csv(mydata,paste0("analyzed_",filename))
+  mydata
 }
-filename = "AMA-18-2v2.csv"
-data = makeAMATable("AMA-18-2v2.csv")
+filename = "AMA-18-4.csv"
+mydata = makeAMATable("AMA-18-4.csv")
+
+x = c("blank","blank.1","blank.2","blank.3")
+y = strsplit(x,"\\.")
+y = as.data.frame(strsplit(x,"\\."))[1,]
+
 df_new <- as.data.frame(lapply(data, FUN=function(x) x-x[1]))
 mydata <- read.table("AMA-18-2v2.csv",sep = ",", header=TRUE,row.names =1, check.names = F)
 rownames(mydata)= (0:192*15)/60 #Make the row names representative of hours

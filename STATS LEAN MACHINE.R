@@ -228,7 +228,7 @@ mixed <- with(orgData, interaction(type, age))
   library(agricolae)
   TukeyHSD(anovaModel) #gives p values for pair-wise comparisons 
   print(HSD.test(anovaModel, alpha = 0.05,trt ="mixed")) #gives letter codes but no p values
-  anovaModel$model$mixed = make.unique(as.character(anovaModel$model$mixed))
+    anovaModel$model$mixed = make.unique(as.character(anovaModel$model$mixed))
   hsd
 } 
 library(dplyr)
