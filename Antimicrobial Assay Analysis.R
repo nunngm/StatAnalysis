@@ -25,7 +25,13 @@ makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   mydata
 }
 filename = "AMA-18-4.csv"
+setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/StatAnalysis")
 mydata = makeAMATable("AMA-18-4.csv")
+
+best = mydata[2,]
+best = best+0.05
+write.csv(best,paste0("messed_",filename))
+
 
 x = c("blank","blank.1","blank.2","blank.3")
 y = strsplit(x,"\\.")
