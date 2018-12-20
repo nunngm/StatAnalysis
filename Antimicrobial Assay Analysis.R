@@ -12,6 +12,7 @@ rm(list=ls())
 makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   mydata <- read.table(filename,sep = ",", header=TRUE,row.names = 1, check.names = F)
   rownames(mydata)= (0:(length(mydata[,1])-1))*15/60 #Make the row names representative of hours
+  mydata = na.omit(mydata)
   #Fix column names
   mydata = mydata[colnames(mydata)!="empty"] #remove columns labelled empty
   #Mean subtract the mean of the blanks from each row
@@ -21,12 +22,40 @@ makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   
   ###this shit doesn't work yet
   mydata = mydata[as.numeric(rownames(mydata))%%everyHour==0,]
+  #mydata = mydata[,order(colnames(mydata))] #Sort by column name
   write.csv(mydata,paste0("analyzed_",filename))
   mydata
 }
-filename = "AMA-18-4.csv"
-setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/StatAnalysis")
-mydata = makeAMATable("AMA-18-4.csv")
+filename = "AMA-18-6.csv"
+setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/RawData")
+mydata = makeAMATable("AMA-18-5.csv")
+
+AMATTest = function(mydata){
+  colum = colnames(mydata)
+  colum = strsplit(colum,split = "_")
+  df =data.frame()
+  for (i in 1:length(mydata)){
+    df =rbind(df, c(colum[[i]][1],colum[[i]][2]), stringsAsFactors =F)
+    #help = rbind(help,df,stringsAsFactors =F)
+  }
+  df[,1] = factor(df[,1])
+  rm(colum)
+  mx = matrix(nrow = nrow(mydata), ncol = nlevels(df[,1]))
+  colnames(mx)= levels(df[,1])
+  rownames(mx) = rownames(mydata)
+  for (i in 1:nlevels(df[,1])){
+    wt = grep(pattern = levels(df[,1])[i],df[,1])
+    mut = wt[grep(pattern = "^PS392.*",df[wt,2])]
+    wt = wt[wt!=mut]
+    for (j in 1:nrow(mydata)){
+      mx[j,i] = t.test(mydata[j,wt],mydata[j,mut])$p.value
+    }
+  }
+  mx = mx<0.05
+  
+}
+
+
 
 best = mydata[2,]
 best = best+0.05
