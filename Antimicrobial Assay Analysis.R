@@ -26,7 +26,7 @@ makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   write.csv(mydata,paste0("analyzed_",filename))
   mydata
 }
-filename = "AMA-18-6.csv"
+filename = "analyzed_AMA-18-6.csv"
 setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/RawData")
 mydata = makeAMATable("AMA-18-5.csv")
 
@@ -52,7 +52,7 @@ AMATTest = function(mydata){
     }
   }
   mx = mx<0.05
-  
+  mx
 }
 
 
