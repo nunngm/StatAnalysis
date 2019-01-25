@@ -26,9 +26,10 @@ makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   write.csv(mydata,paste0("analyzed_",filename))
   mydata
 }
-filename = "analyzed_AMA-18-6.csv"
+filename = "analyzed_AMA-18-8.csv"
 setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/RawData")
-mydata = makeAMATable("AMA-18-5.csv")
+mydata = makeAMATable("BA-18-2.csv")
+mydata = AMATTest(mydata)
 
 AMATTest = function(mydata){
   colum = colnames(mydata)
@@ -48,18 +49,70 @@ AMATTest = function(mydata){
     mut = wt[grep(pattern = "^PS392.*",df[wt,2])]
     wt = wt[wt!=mut]
     for (j in 1:nrow(mydata)){
-      mx[j,i] = t.test(mydata[j,wt],mydata[j,mut])$p.value
+      mx[j,i] = t.test(mydata[j,wt],mydata[j,mut],alternative = "t")$p.value
     }
   }
   mx = mx<0.05
   mx
 }
 
+makeBATable = function(filename, everyHour=2,blankName="^blank.*"){
+  mydata <- read.table(filename,sep = ",", header=TRUE,row.names = 1, check.names = F)
+  #rownames(mydata)= (0:(length(mydata[,1])-1))*15/60 #Make the row names representative of hours
+  mydata = na.omit(mydata)
+  #Fix column names
+  mydata = mydata[colnames(mydata)!="empty"] #remove columns labelled empty
+  #Mean subtract the mean of the blanks from each row
+  blankAvg = rowMeans(mydata[,grepl(pattern = blankName,colnames(mydata))])
+  mydata = mydata[,grep(pattern = blankName,colnames(mydata),invert =T)] - blankAvg
+  #Select only desired rows
+  
+  ###this shit doesn't work yet
+  mydata = mydata[as.numeric(rownames(mydata))%%everyHour==0,]
+  #mydata = mydata[,order(colnames(mydata))] #Sort by column name
+  write.csv(mydata,paste0("analyzed_",filename))
+  mydata
+}
+mydata =makeBATable("BA-18-2.csv")
 
-
+BATTest = function(mydata){
+  colum = colnames(mydata)
+  colum = strsplit(colum,split = "_")
+  df =data.frame()
+  for (i in 1:length(mydata)){
+    df =rbind(df, c(colum[[i]][1],strsplit(colum[[i]][2], split = ".", fixed = T)[[1]][1]), stringsAsFactors =F)
+    #df =rbind(df, c(colum[[i]][1],colum[[i]][2]), stringsAsFactors =F)
+  }
+  df[,1] = factor(df[,1])
+  df[,2] = factor(df[,2])
+  rm(colum)
+  mx = matrix(nrow = nrow(mydata), ncol = nlevels(df[,1]))
+  colnames(mx)= levels(df[,1])
+  rownames(mx) = rownames(mydata)
+  wtTT = mx
+  mutTT = mx
+  for (i in 1:nlevels(df[,1])){
+    wt = grep(pattern = paste0("^",levels(df[,1])[i]),df[,1])
+    mut = wt[grep(pattern = "^PS392",df[wt,2])]
+    wt = wt[wt!=mut]
+    for (j in 1:nrow(mydata)){
+      mx[j,i] = t.test(mydata[j,wt],mydata[j,mut],alternative = "t")$p.value
+    }
+    if (i>=2){
+      EtOH_wt = grep(pattern = paste0("^",levels(df[,1])[1]),df[,1])
+      EtOH_mut = EtOH_wt[grep(pattern = "^PS392",df[EtOH_wt,2])]
+      EtOH_wt =EtOH_wt[EtOH_wt!=EtOH_mut]
+      for (j in 1:nrow(mydata)){
+        wtTT[j,i] = t.test(mydata[j,EtOH_wt],mydata[j,wt])$p.value
+        mutTT[j,i] = t.test(mydata[j,EtOH_mut],mydata[j,wt])$p.value
+      }
+    }
+  }
+  df2 = list(mx<0.05,wtTT<0.05,mutTT<0.05)
+}
 best = mydata[2,]
 best = best+0.05
-write.csv(best,paste0("messed_",filename))
+write.csv(mydata,paste0("analyzed_",filename))
 
 
 x = c("blank","blank.1","blank.2","blank.3")
