@@ -2,7 +2,7 @@
 
 #Required packages, only needs to be done once per computer
 install.packages("car")
-install.packages("agricolae") 
+install.packages("agricolae")
 
 #Data needs to be in a table of 96 columns (one for each sample) and all the recorded times below
 
@@ -19,16 +19,16 @@ makeAMATable = function(filename, everyHour=2,blankName="^blank.*"){
   blankAvg = rowMeans(mydata[,grepl(pattern = blankName,colnames(mydata))])
   mydata = mydata[,grep(pattern = blankName,colnames(mydata),invert =T)] - blankAvg
   #Select only desired rows
-  
+
   ###this shit doesn't work yet
   mydata = mydata[as.numeric(rownames(mydata))%%everyHour==0,]
   #mydata = mydata[,order(colnames(mydata))] #Sort by column name
   write.csv(mydata,paste0("analyzed_",filename))
   mydata
 }
-filename = "analyzed_AMA-18-8.csv"
+filename = "AMA-18-5.csv"
 setwd("C:/Users/garre/OneDrive/Documents/Undergrad and Masters/Data/R WD/RawData")
-mydata = makeAMATable("BA-18-2.csv")
+mydata = makeAMATable("AMA-18-12.csv")
 mydata = AMATTest(mydata)
 
 AMATTest = function(mydata){
@@ -65,15 +65,11 @@ makeBATable = function(filename, everyHour=2,blankName="^blank.*"){
   #Mean subtract the mean of the blanks from each row
   blankAvg = rowMeans(mydata[,grepl(pattern = blankName,colnames(mydata))])
   mydata = mydata[,grep(pattern = blankName,colnames(mydata),invert =T)] - blankAvg
-  #Select only desired rows
-  
-  ###this shit doesn't work yet
-  mydata = mydata[as.numeric(rownames(mydata))%%everyHour==0,]
   #mydata = mydata[,order(colnames(mydata))] #Sort by column name
   write.csv(mydata,paste0("analyzed_",filename))
   mydata
 }
-mydata =makeBATable("BA-18-2.csv")
+helpdata =makeBATable("BA-18-3_600nm.csv")
 
 BATTest = function(mydata){
   colum = colnames(mydata)
@@ -94,7 +90,7 @@ BATTest = function(mydata){
   for (i in 1:nlevels(df[,1])){
     wt = grep(pattern = paste0("^",levels(df[,1])[i]),df[,1])
     mut = wt[grep(pattern = "^PS392",df[wt,2])]
-    wt = wt[wt!=mut]
+
     for (j in 1:nrow(mydata)){
       mx[j,i] = t.test(mydata[j,wt],mydata[j,mut],alternative = "t")$p.value
     }
@@ -146,3 +142,36 @@ newData2= newData2+0.04
 newData = newData2[as.numeric(rownames(newData))%%2==0,]
 
 write.csv(newData,"analyzed.csv")
+g = vector()
+for (i in 1:96){
+  g = c(g,strsplit(colnames(mydata), split =".", fixed =T)[[i]][1])
+}
+mydata = cbind(rownames(mydata),mydata)
+
+
+##New Stuff
+library(metaSEM)
+library(statmod)
+library(multcompView)
+mydata = t(mydata)
+g= vector()
+for (i in 1:80){
+  g = c(g,strsplit(rownames(mydata), split =".", fixed =T)[[i]][1])
+}
+lev = levels(as.factor(g))
+res = compareGrowthCurves(g,mydata, nsim = 1000)
+res = vec2symMat(res$P.Value, diag =F)
+rownames(res) = lev
+x = multcompLetters(res)
+x = x$Letters
+y = matrix(data = NA, nrow = 2, ncol = length(x)/2)
+for (i in 1:length(x)) {
+  y[((i%%2 -1)*-1)+1,(i+1)%/%2] = x[i]
+}
+g = c(1,3,6,9,2,5,8,4,7,10)
+lev = levels(as.factor(unlist(strsplit(lev, split ="_"))))
+colnames(y) = grep(pattern = "^[0-9]",lev,value =T)
+rownames(y) = lev[grep(pattern = "^[0-9]", lev, invert = T)]
+y = y[,g]
+colnames(y)= colnames(y)[g]
+write.csv(y,paste0("letters_",filename))

@@ -1,0 +1,9 @@
+{
+    "path" : "~/GARP/man",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}
