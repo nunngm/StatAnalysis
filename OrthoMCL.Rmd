@@ -1,0 +1,176 @@
+---
+title: "OrthoMCL Tutorial"
+author: "Garrett Nunn and Leah Sather"
+date: "Up to date as of March 22, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#OrthoMCL Tutorial
+
+Let's take a look at our working directory first. Please navigate to `/2/scratch/LS-GN/`. Here you will find the following directories/files:
+
+* `papers/` contains papers that might be of use if you want to run OrthoMCL
+* `rawData/` contains all of the raw proteomes we will be using today
+* `backup/` contains all of the finished outputs for our tutorial. If anyone gets stuck/left behind today they can use the outputs in this file to jump ahead and catch up.
+* `outputs/` is a directory for all of our outputs.
+    + `orthomcl@` is a soft link to the folder containing all of the commands developed for OrthoMCL
+    + Finally `db_config` which contains our set up config file we will need for most of orthoMCL.
+
+The first step on your way to developing orthologs is to create a database config file.
+
+Here is the example one given to you:
+```{bash, eval =F}
+dbVendor=mysql
+dbConnectString=dbi:mysql:orthomcl
+dbLogin=orthomcl
+dbPassword=M3i]4Wko
+similarSequencesTable=SimilarSequences
+orthologTable=Ortholog
+inParalogTable=InParalog
+coOrthologTable=CoOrtholog
+interTaxonMatchView=InterTaxonMatch
+percentMatchCutoff=50 #Recommended for detecting class level differences
+evalueExponentCutoff=-5
+oracleIndexTblSpc=NONE
+```
+Make sure to enter the correct database information and double check the username and password are correct.
+
+Here there are two imporant factors to consider:
+
+* `percentMatchCutoff` (50 by default)
+    + We are going to use the default of 50 which is recommended for class level differences in prokaryotes. As our viruses mutant more frequently we will stick with 50% and hope we get to see some family level differences.
+    + It is important to note here that OrthoMCL was designed for eukaryotic differences and we are just using phages as it is more helpful for all of you to be able to run the pipeline in a 2 hour class.
+* `evalueExponentCutoff` (-5 by default) 
+    + -5 is the recommended value and has been used in determining orthologs in phages before. We will follow this example but it is worth looking into if you want to do this on your own.
+
+In OrthoMCL if you need the help file it has a... unique way of giving them to you. Just type in the command with no arguments or flags and the help page will come up. If you type `man orthomclCommand` it will give you this unreadable document that won't help at all.
+
+##Adjusting and Filtering Sequences
+
+For `orthomclAdjustFasta` we need to find the column in the FASTA files that contains the unique ID for proteins. So let's take a look at our Fasta Files:
+
+![](ecolifasta.png)
+
+From this we can see that it is column 4 that has the unique protein ID's. At this point any organism that has multiple FASTA files should be combined into one. We do not need to do this.
+
+Navigate into `/outputs/compliantFasta/`. You can see we have already done most of the adjusting. With knowledge of which column to pick you can adjust the last FASTA now. All of our results need to end up in this folder. We will be using the folder as an input for the next step.
+
+The usage of `orthomclAdjustFasta` is as follows:
+
+`orthomclAdjustFasta [Taxon ID] [FASTA File] [Protein ID Column]`
+
+* [Taxon ID] is any name/identifier you want to pick that is 3-4 characters long
+
+Now run this on the E coli phage (KITO is the taxonID we picked):
+```{bash, eval  =F}
+../orthomcl/orthomclAdjustFasta KITO ../rawData/phageprot_EscherichiaKIT03.fasta 4
+
+```
+
+Now navigate back out to `/outputs`. Now we want to filter our reads. To do this we will use `orthomclFilterFasta`. Usage:
+
+`orthomclFilterFasta [input dir] [min length of proteins] [maximum percent stop codons]`
+
+* For this step we are going to be fairly liberal as we don't have many proteins to work with to begin with.
+
+```{bash, eval =F}
+orthomcl/orthomclFilterFasta compliantFasta 10 20
+```
+Now let's check our results:
+
+* There's nothing in poorProteins!
+* Why? These sequences were hypothesized/ proven proteins meaning all of there sequences were longer than 10 aa and would probably only have one stop codon.
+* With MS data this step is critical for filtering out poor sequences.
+
+##The All Vs. All Blast
+
+I don't know how many of you have run a blast remotely. It is easy and much much faster than loading up the website. There are 2 steps in running an all-vs-all blast. The first step is setting up a relational blast database from your sequences. This step is simple just select your input file, the type of database you are making and then give it a name for the database.
+
+The second step is running a blast against your relational database. This step is a little more complicated. Start by running the blast with the code provided. It should take ~1min to complete. Here you are searching the database you just made for matches from the same fasta file. OrthoMCL requires the tabular format so make sure the outfmt flag is set to 6.
+
+```{bash, eval =F}
+makeblastdb -in goodProteins.fasta -dbtype prot -out mydb
+blastp -query goodProteins.fasta -db mydb -out all-vs-all_inTab -outfmt 6
+```
+
+Let's take a look at the results:
+![](blastp.png)
+
+This gives us a lot of useful information for a start we see the query sequence and the reference sequence, the percent identical matches and later on (second last value) gives us the E values. The expected number of hits by chance. It describes the background noise of your sample. The lower the number the better your sequences matched. If you remember back to the beginning this is what we set the cutoff for earlier.
+
+Before we load into MySQL and the OrthoMCL database, we need to format the blast results and calculate percent match of each hit. This is another fairly simple step (for us, calculating percent matches is actually quite tricky). 
+
+```{bash, eval =F}
+orthomcl/orthomclBlastParser all-vs-all_inTab compliantFasta/ >>similarSequences.txt
+```
+Now time to jump on into MySQL... kind of.
+
+##MySQL
+![](Oh No.png)
+
+So there are some... issues with running MySQL. As it turns out MySQL only runs on the head. This means that what obviously I'm going to show you what we did then give you guys the results to continue. This is the most computationally intensive set of steps so obviously you can't run on the head if you have a large dataset. If you wanted to do this you could talk to Brian about running MySQL on one of the other info servers, download the files to your local computer and run it there, or install it locally on your own directory on the cluster (ask Brian first). If you do end up talking to Brian and running on the head before you start move important files to your home directory as /2/scratch/ isn't on the head machine.
+
+Anyways, the first step is installing the database schema. 
+
+```{bash, eval = F}
+orthomcl/orthomclInstallSchema db_config #Installs the database schema
+```
+
+Next we load our blast results into the orthoMCL database.
+```{bash, eval =F}
+orthomcl/orthomclLoadBlast db_config similarSequences.txt
+```
+
+The last 2 steps go hand in hand. `orthomclPairs` finds protein pairs using the relational database we have set up. This is the choke point of this algorithm and takes the longest time to compute. So it has a handy feature of being able to startup in the middle if it crashes part way through. To use this just look into the log file and find the last step competed and use that as the tag. The flag `cleanup` gets rid of the intermediary tables once they are no longer needed.
+
+The second step just takes all of the pairs you generated that are in the database and dumps them into an mclInput file. 
+
+```{bash, eval =F}
+orthomcl/orthomclPairs db_config log_file cleanup=yes
+orthomcl/orthomclDumpPairsFiles db_config
+```
+
+This is the bread and butter of orthoMCL. Things to keep in mind:
+
+* In-Paralog pairs are defined as within species matches that are better than any of the interspecies matches.
+* Ortholog Pairs are pairs of proteins across two species that have hit as good or better that any other hits.
+* OrthoMCL uses the In-Paralog and Ortholog pairs to find all pairs of proteins across the two species that are connected.
+
+Normalization:
+
+* Average the blast scores of just In-Parlogs/Orthologs/Co-ortholog and divide that by each pair to determine the normalized result.
+
+
+##MCL and pulling out pairs
+
+We are almost finished now. This is where the MCL part of OrthoMCL comes into play. As explained by Leah, Markov-Clustering is a method of clustering individual relationships into groups. If you want to get into it in depth, there are many papers and lectures available online on Markov-Clustering.
+
+Here is the code we will use today:
+```{bash, eval=F}
+mcl mclInput --abc -I 1.5 -o mclOutput
+```
+This is the bash program performs Markov-Clustering on the results generated from orthoMCL. 
+
+* `--abc` is a flag to state the format of the input file. ABC format refers to a tab sperated format that is shown as `[Label1] [Label2] [Weight]`, where weight is the weight of the relationship between the labels. 
+* `-I` is a flag for inflation. This basically just determines the granularity of your results. Generally in the range of 1.2 to 2.0. Where an inflation value of 5 is very granular.
+
+Finally there is `orthoMclToGroups`. Briefly:
+```{bash,eval =F}
+orthomcl/orthomclMclToGroups yourPrefix 1000 < mclOutput >groups.text
+```
+orthoMclToGroups takes the mclOutput file piped into the program and just formats the output to an orthoMCL output file. This is then piped to an output file "groups.txt". Each line of the output file looks like this:
+
+`yourPrefix_[GroupID]: lab1 lab2 lab3 etc`
+
+Each group has a unique ID that starts counting from the arbitrary number that we gave it (in this case 1000).
+
+Now we have our output lets take a look at it:
+group1004: Proteins all have similar function
+
+group1006: How orthologs can help us characterize the P108 hypothetical protein.
+

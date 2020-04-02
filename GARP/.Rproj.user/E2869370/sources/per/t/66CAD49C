@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1581963866507.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1064914097",
+    "id" : "66CAD49C",
+    "lastKnownWriteTime" : 1572995193,
+    "last_content_update" : 1572995193,
+    "path" : "C:/Users/garre/OneDrive/Documents/Cameron Lab- McMaster University/Major R Scripts/STATS LEAN MACHINE.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "165,2",
+        "scrollLine" : "156"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

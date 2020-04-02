@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1581963770736.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2511271041",
+    "id" : "C7AE1625",
+    "lastKnownWriteTime" : 1582045112,
+    "last_content_update" : 1582045112184,
+    "path" : "C:/Users/garre/OneDrive/Documents/Cameron Lab- McMaster University/Major R Scripts/GARP/R/ldStats.R",
+    "project_path" : "R/ldStats.R",
+    "properties" : {
+        "cursorPosition" : "11,10",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

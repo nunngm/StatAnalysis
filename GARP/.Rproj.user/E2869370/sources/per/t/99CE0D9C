@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1581963741021.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1109836851",
+    "id" : "99CE0D9C",
+    "lastKnownWriteTime" : 1551122621,
+    "last_content_update" : 1551122621,
+    "path" : "C:/Users/garre/OneDrive/Documents/Cameron Lab- McMaster University/Major R Scripts/GARP/R/baTable.r",
+    "project_path" : "R/baTable.r",
+    "properties" : {
+        "cursorPosition" : "0,0",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

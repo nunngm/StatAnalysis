@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1581963885888.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3957695376",
+    "id" : "CA513BEB",
+    "lastKnownWriteTime" : 1551124911,
+    "last_content_update" : 1551124911,
+    "path" : "C:/Users/garre/OneDrive/Documents/Cameron Lab- McMaster University/Major R Scripts/GARP/R/compareCurves.r",
+    "project_path" : "R/compareCurves.r",
+    "properties" : {
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

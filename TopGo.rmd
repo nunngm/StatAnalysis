@@ -1,0 +1,243 @@
+---
+title: "TopGo Analyses"
+author: "Garrett Nunn"
+date: 'April 26th 2019'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r loading libraries}
+library(DESeq2) # To read the DESeq2 file.  We'll be pulling this apart shortly
+library(topGO) # Performs the gene enrichment
+library(Rgraphviz) # Used by topGO when graphing.  Not loaded immediately...
+library(dplyr) # Used simply for filtering purposes
+````
+
+
+We saved the results of Ian's RNAseq toutorial so we can pick up directly from where his code left off. This will load the 'tissue result' object created in the last line. This was a test for genes diffrentially expressed in the genetial and wing disks 
+This data is avalible in our toutorial server 
+It must be saved in the same directory you are working in for this to work!
+```{r load data}
+load("Input.RData")
+```
+
+It is easiest to load this data into TopGo if it is a data frame, so lets do that first!
+This obhject includes a list of genes with the mean expression, log2fold change, standard error, calculated t-stat, p-value and adjusted p-value
+
+
+```{r making the result a dataframe}
+df = as.data.frame(res_mVa_12h@listData)
+rownames(df) = res_mVa_12h@rownames
+
+df=  as.data.frame(res_1hV12h_avr_trimmed@listData)
+rownames(df) = res_1hV12h_avr_trimmed@rownames
+
+df = as.data.frame(res_infVhpi_shrunk)
+rownames(df) = res_infVhpi_shrunk@rownames
+```
+
+
+Loading the TAIR gene association I ran into a problem at locus:2007417 as the 10th column (DB_Object_Name) had an open quotation in it. U2B"-LIKE was the infracting term. To get around this I just took the entire gene association file and deleted any quotes present.
+
+```{r adding GO ID}
+gene_associations <- read.delim("gene_association_final.txt", comment.char = "!", header = FALSE, as.is = TRUE) 
+colnames(gene_associations) <- c("DB", "DB_Object_ID", "DB_Object_Symbol", "Qualifier", "GO_ID",
+                                 "DB:Reference", "Evidence", "With_From", "Aspect", "DB_Object_Name",
+                                 "DB_Object_Synonym", "DB_Object_Type", "Taxon", "Date", "Assigned_by") 
+#I didn't want to look at locus ID's from TAIR so I took the first item of DB_Object_Synonym which is the gene ID and put it in the DB_Object_ID column as that is more useful
+gene_associations$DB_Object_ID = res
+gen_association_save <- sapply(gene_associations, function(x){paste(x, collapse = ", ")}) 
+gen_association_save <- data.frame("Gene Association" = gene_associations)
+write.table(gen_association_save, file = "gene_association_final.txt", sep = "\t", quote = FALSE, col.names = FALSE, row.names = F)
+
+# Trimming the dataframe so that it's only what we're interested in
+gene_associations <- gene_associations[,c(2,3,5,7,9,14)]
+
+
+
+# Go through every unique gene and pull out any GO_ID associated with the given gene then give
+gene_GO <- lapply(unique(gene_associations$DB_Object_ID), function(x){tmp <- gene_associations %>% filter(DB_Object_ID == x)
+  return(tmp$GO_ID)})
+names(gene_GO) <- unique(gene_associations$DB_Object_ID) 
+```
+
+If you want to save your work at this point, you can use this code to write out a table. You don't need to run this for this toutorial. 
+```{r saving}
+gene_GO_save <- sapply(gene_GO, function(x){paste(x, collapse = ", ")}) 
+gene_GO_save <- as.data.frame( gene_GO_save) # Making a dataframe
+write.table(gene_GO_save, file = "TAIR_to_GO.delim", sep = "\t", quote = FALSE, col.names = FALSE) 
+#to load back in later
+gene_GO <- readMappings("TAIR_to_GO.delim")
+```
+
+##Now on to the real stuff
+
+```{r up and down genes}
+#Positive log fold change (up) with a p-value <  0.05
+gene_sig_up = df[df$log2FoldChange > 0,]$padj 
+names(gene_sig_up) <- rownames(df[df$log2FoldChange > 0,]) 
+gene_sig_up <- gene_sig_up[complete.cases(gene_sig_up)]
+
+gene_sig_down = df[df$log2FoldChange < 0,]$padj 
+names(gene_sig_down) <- rownames(df[df$log2FoldChange < 0,]) 
+gene_sig_down <- gene_sig_down[complete.cases(gene_sig_down)]
+
+gene_filter <- function(allScore){
+  return(allScore < 0.05)
+}
+
+```
+
+Now we are ready to make the TopGo objects!! We will make one for both up and down genes 
+    Discription = allows you to include infomration about the data in this object - this can be       eddited later if you need to 
+    Ontology = You have to identify a type of ontology you are interested in. CC = Cellular           Component, BP = Biological Process, MF = Molecular Function
+    allGenes = a named numeric vector
+    geneSel = The selection filter. What do we consider ineresting?
+    nodeSize = Minimum gene count for each GO ID
+    annotationFun = what does your mapping file look like?
+    gene2Go = your gene-to-go mapping varriable 
+
+```{r topGO object}
+up_genes <- new("topGOdata",
+              description = "Gene Ontology Mock vs Avr - PVALUE", 
+              ontology = "BP", 
+              allGenes = gene_sig_up,  
+              geneSel = gene_filter, 
+              nodeSize = 10, 
+              annotationFun = annFUN.gene2GO, 
+              gene2GO = gene_GO) 
+
+down_genes <- new("topGOdata",
+              description = "Gene Ontology Mock vs Avr - PVALUE", 
+              ontology = "BP", 
+              allGenes = gene_sig_down,  
+              geneSel = gene_filter, 
+              nodeSize = 10, 
+              annotationFun = annFUN.gene2GO, 
+              gene2GO = gene_GO) 
+
+```
+
+
+
+```{r investigating the TopGO object}
+
+description(down_genes)
+head(genes(down_genes))
+numGenes(down_genes)
+numSigGenes(down_genes)
+head(sigGenes(down_genes))
+head(usedGO(down_genes))
+
+```
+
+
+This is good, but you aren't going to test for every GO term you are interested in individually! 
+We want to be able to run this for the whole group at once 
+We are defining this test with the defults, but the first line of code can be modified to retun a variety of diffrent statistics
+
+It is important to note that the results returned from this test does not correct p-values! You have to do this on your own! 
+
+```{r}
+fisher_test <- new("classicCount", testStatistic = GOFisherTest, name = "fisher_test")
+fisher_up <- getSigGroups(up_genes, fisher_test)
+fisher_up
+fisher_down = getSigGroups(down_genes, fisher_test)
+fisher_down
+
+```
+
+
+
+```{r}
+up.table <- GenTable(up_genes, Fisher = fisher_up, topNodes = 10)
+up.table
+down.table <- GenTable(down_genes, Fisher = fisher_down, topNodes = 10)
+down.table
+```
+
+You can also compare the distribution of a particular GO ID against the null distribution 
+
+```{r}
+up.goID <- up.table[3, "GO.ID"]
+
+print(showGroupDensity(up_genes, up.goID, ranks = TRUE))
+
+```
+
+
+```{r}
+par(cex = 0.5)
+
+showSigOfNodes(up_genes, score(fisher_up), firstSigNodes = 15, useInfo = 'all')
+showSigOfNodes(down_genes, score(fisher_down), firstSigNodes = 10, useInfo = 'all')
+```
+
+Next I wanted to take the significant and important GO terms and look at which significantly different genes related to these terms.
+
+The below program takes a specified GO term of interest (the example shown is from a generated upregulated gene table) and returns genes that are significantly up/down regulated that are tagged with the specified GO term. Then the `objectSymbol` list is created which takes all genes and houses the DB_Object_Symbol for each gene (generally the common name). Then the genes that were tagged with the relevent GO terms are used to call the common names of the genes. This allows much easier picking of genes of interest for further study.
+
+```{r}
+goTermOI = "GO:1901565" ###Carboxylic acid transport
+up_names = names(gene_sig_up[gene_sig_up<0.05])
+down_names = names(gene_sig_down[gene_sig_down<0.05])
+genesOI = up_names
+
+allGO= genesInTerm(up_genes)
+allGO[goTermOI]
+sig_genes_GO = lapply(allGO,function(x) x[x %in% genesOI] )
+sig_genes_GO[[goTermOI]]
+sig_genes_GO[[goTermOI]][c(1,2,5)]
+
+objectSymbol = lapply(unique(gene_associations$DB_Object_ID), function(x){tmp <- gene_associations %>% filter(DB_Object_ID == x)
+  return(tmp$DB_Object_Symbol)})
+names(objectSymbol) = unique(gene_associations$DB_Object_ID)
+objectSymbol = unlist2(objectSymbol)
+objectSymbol = objectSymbol[unique(names(objectSymbol))]
+
+objectSymbol[sig_genes_GO[[goTermOI]]]
+
+
+###Really tried to do it this way but it barely worked
+# go2gene = lapply(unique(gene_associations$GO_ID), function(x){tmp <- gene_associations %>% filter(GO_ID == x)
+#   return(tmp$DB_Object_ID)})
+# names(go2gene) <- unique(gene_associations$GO_ID)
+# goTermOI = "GO:0009607"
+# goTermOI = gene_associations %>% filter(GO_ID==goTermOI)
+# goTermOI
+# goTermOI = goTermOI$DB_Object_ID
+# answer = lapply(goTermOI$DB_Object_ID,function(x){ sum(x==genesOI)>0})
+# goTermOI = goTermOI[unlist(answer),]
+```
+For the shrunk dataset one of the significant GO terms was for carboxylic acid transport. I was interested significantly upregulated that were involved with this gene. To do this I used the code above. Of the resulting five significant genes three of them were involved in amino acid transport. Salicylic acid is  
+
+
+TSTAT version of finding/showing significant GO Terms.
+```{r}
+gene_down_stat <- df[df$log2FoldChange < 0,]$stat 
+names(gene_down_stat) <- rownames(df[df$log2FoldChange < 0,])
+gene_down_stat <- gene_down_stat[complete.cases(gene_down_stat)]
+tstat_downfilter <- function(allScore){
+  return(allScore < -1.96)
+}
+tstat_down <- new("topGOdata",
+              description = "TSTAT",
+              ontology = "BP", 
+              allGenes = gene_down_stat,  
+              geneSel = tstat_downfilter, 
+              nodeSize = 10, 
+              annotationFun = annFUN.gene2GO, 
+              gene2GO = gene_GO)
+down_KS <- runTest(tstat_down, algorithm = "classic", statistic = "ks")
+down_KS
+down_KS@score <- p.adjust(down_KS@score, "fdr")
+down_KS
+T.Table <- GenTable(tstat_down, KS = down_KS, 
+                    topNodes = 10)
+T.Table
+showSigOfNodes(tstat_down, score(down_KS), firstSigNodes = 5, useInfo = 'all')
+showSigOfNodes(tstat_down, score(down_KS), firstSigNodes = 20, useInfo = 'all')
+```

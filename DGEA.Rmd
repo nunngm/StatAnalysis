@@ -1,0 +1,310 @@
+---
+title: "Differential Expression Analysis"
+author: "Garrett Nunn"
+date: "April 26th 2019"
+output:
+  html_document:
+    keep_md: yes
+---
+
+
+```{r}
+library(DESeq2)
+library(tximport)
+library(readr)
+library("RColorBrewer")
+library(gplots)
+```
+
+##Set working directory and file locations into R
+
+```{r}
+setwd("C:\\Users\\garre\\OneDrive\\Documents\\Uni Masters\\Bio 720\\Independent Project")
+quant_files <- file.path("counts", list.files("counts"))
+samples <- c("a_h1_s1", "a_h1_s2", "a_h12_s1","a_h12_s2", "a_h6_s1", "a_h6_s2", "m_h1_s1", "m_h1_s2", "m_h12_s1", "m_h12_s2", "m_h6_s1", "m_h6_s2", "v_h1_s1", "v_h1_s2", "v_h12_s1", "v_h12_s2", "v_h6_s1", "v_h6_s2")
+names(quant_files) <- samples
+```
+
+## Loading the count data into R (Skip)
+
+
+
+```{r}
+read.counts = read.table(quant_files[1], header=F,row.names = 1)
+for (i in 2:length(quant_files)) {
+  read.counts = cbind(read.counts,read.table(quant_files[i],header=F)[2])
+}
+colnames(read.counts) = samples
+```
+
+
+
+##Experimental Design
+
+There are five parameters that I decided to observe. The first three are from the experiment itself. `infection`, which was defined as the type of infiltration to the intercellular space that occurred. This could be Pst DC3000 avrRPS4 (avr), 10mM MgCl2 (mock), or Pst DC3000 (vir). The next condition is `hpi`, the number of hours after infiltration that tissue collection occurred (1, 6, or 12). The authors did two independent experiments where all of the samples from the first experiment were used as the first biological replicate and all of the samples from the second were used as the other biological replicate. To observe that I added that value to my model.
+
+At this point I went back to the original fastq files to look at lane effects. When I looked closely at the original fastq files I noticed something I hadn't before. The most striking difference was that different samples had different read lengths. I went back to the paper found out that the authors had done 4 seperate sequencing runs. The first 2 had a length of 75bp, the third had a length of 76bp and the last run had a length of 100bp. The way that the authors dealt with this data was hard clipping the beginning and end of the sequences so every read was 66bp, irrespective of quality scores. This is obviously not the right way to deal with this data. This lead me to look more closely at the first line in the fastq files. Using this script:
+```{bash, eval =F}
+#!/bin/bash
+
+#Pulling out sample infomation for the runs
+
+wd=~/pstRNASeq/data/split
+touch ~/pstRNASeq/sampleInfo.txt
+out=~/pstRNASeq/sampleInfo.txt
+
+for file in ${wd}/*_1.fastq; do #I checked that all the reverse reads were the same.
+    head -n 1 $file >> $out
+done
+
+```
+The only difference between read1 and read2 file was in a_h12_s1. Read1 and read2 had a length of 74 and 76 respectfully. When looking at this file I noticed that the first run was done with an Illumina Hiseq X (InstrumentID= HWI-EAS407) while the last three runs were completed with an Illumina Genome Analyzer IIx (HWUSI-EAS1799). From this I picked my next condition which is run number. This condition is to distinguish any differences between the different runs. This includes use of different machines, differences in between the runs themselves and the differences due to read length. This is obviously not ideal, if this had been my experiment I would have multiplexed each sample so every lane that was run would have severeal samples. This would lessen lane, machine and run effects.
+
+The last condition I decided to look at was lane effects ideally I would just compare lane effects between just samples run on the same machine but that would mean no lane effects for the 
+that the Illumina Hiseq X has from the Illumina Genome Analyzer IIx. GAIIx is a eight-channel sequencer.
+
+```{r}
+
+infection = c(rep("avr",6),rep("mock",6),rep("vir",6))
+infection <- as.factor(infection)
+length(infection)
+
+hpi = c(rep(1,2),rep(12,2),rep(6,2))
+hpi = c(hpi,hpi,hpi)
+hpi = as.factor(hpi)
+length(hpi)
+
+machine = c("HWI","HWUSI","HWI","HWUSI","HWI","HWUSI",     "HWI", rep("HWUSI",3),"HWI","HWUSI",    rep("HWUSI",4),"HWI","HWUSI")
+machine = as.factor(machine)
+length(machine)
+
+experiment = c(1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2)
+experiment = as.factor(experiment)
+length(experiment)
+
+batch =        c(1,4,1,3,1,3,1,4,2,3,1,3,3,4,2,3,1,3)
+batch = as.factor(batch)
+length(batch)
+
+lane = c(7,1,6,5,3,2,7,1,4,4,2,1,7,3,6,6,5,3)
+lane = as.factor(lane)
+length(lane)
+
+
+runlane =c(5,15,4,12,2,9,5,15,6,11,1,8,14,16,7,13,3,10)
+runlane = as.factor(runlane)
+length(runlane)
+
+rna.design <- data.frame(sample=samples,
+  file=quant_files,
+  infection=infection,
+  hpi=hpi,
+  batch=batch,
+  experiment= experiment,
+  machine=machine,
+  lane = lane,
+  runlane = runlane)
+
+rna.design
+
+```
+
+
+```{r}
+load.model <- formula(~ experiment + batch)
+
+batch_effects <- DESeqDataSetFromHTSeqCount(rna.design,design=load.model)
+batch_effects$infection = factor(batch_effects$infection, levels =  c("mock","avr", "vir"))
+batch_effects$hpi = factor(batch_effects$hpi, levels = c("1","6","12"))
+batch_effects <- DESeq(batch_effects)
+
+batch_effects_results <- results(batch_effects2, alpha = 0.05)
+summary(batch_effects_results)
+
+# let's re-order the data to look at the two genes.
+batch_effects_results <- batch_effects_results[order(batch_effects_results$padj),]
+head(batch_effects_results)
+plotDispEsts(batch_effects)
+
+for_pca <- rlog(batch_effects, blind=F)
+dim(for_pca)
+par(mfrow=c(1,3))
+plotPCA(for_pca, 
+        intgroup=c("batch"),
+        ntop = 10000) 
+plotPCA(for_pca, 
+        intgroup=c("experiment"),
+        ntop = 10000)
+plotPCA(for_pca, 
+        intgroup=c("runlane"),
+        ntop = 10000)
+
+```
+
+Looking at the results there appears to be a lot of variation coming from lane 7 upon further inspection and looking at the other conditions it becomes obvious that this variation has much more to do with hours after infection than lane or run effects.
+
+
+If you look at the effects of the various conditions you see that hpi has the largest effect and seems to account for most of the variance seen.
+
+```{r}
+plotPCA(for_pca, 
+        intgroup=c("hpi"),
+        ntop = 10000)
+```
+
+Although there seems to be a lot of variation associated with lane 7 this variation is between machines. 
+
+
+### Back to the analysis
+While there is some lane effects based on our initial statistical check, and visual inspection of PC1 VS. PC2. However, there clearly is a pattern here, and it has nothing to do with lane. 
+
+We can quickly take a look to see if this pattern shows anything interesting for our biological interest. However, this is putting the cart before the horse, so be warned.
+
+```{r, echo=TRUE}
+plotPCA(for_pca, ntop = 10000,
+        intgroup=c("infection","experiment"))
+```
+
+From this it is clear that the majority of the variability betwen samples just comes from the length of time between infiltration and tissue collection. The avr group appears to be grouping seperately from the mock group at 6 and 12 hpi. while the virulent appears to not be grouping seperately from either the avr or mock group.
+
+Looking more closely at the different experiments:
+```{r experiment, echo =T}
+plotPCA(for_pca, 
+        intgroup=c("experiment"),
+        ntop = 10000)
+```
+
+Interestingly while generally the biological replicates are mixed this is not the case for the plants infected with the virulent pathogen. This probably suggests that the course of infection was different in the two experiments and that in the first experiment the plants might have responded to infection and upregulated defense genes. In the second experiment the virulent samples appear much more like the mock plants. Suggesting that in these plants the virulent pathogen might have been able to successfully inhibit defenses through a type 3 secretion pathway.
+
+
+### Hierarchical Clustering
+
+```{r}
+rlogMat <- assay(for_pca) # just making a matrix of the counts that have been corrected for over-dispersion in a "blind" fashion
+distsRL <- dist(t(rlogMat)) # Computes a distance matrix (Euclidian Distance)
+mat <- as.matrix(distsRL)  # Make sure it is a matrix
+
+rownames(mat) <- colnames(mat) <-   with(colData(batch_effects), paste(infection, hpi, experiment, sep=" : "))
+
+hc <- hclust(distsRL)  # performs hierarchical clustering
+hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)  # picking our colours
+```
+
+Now we generate the plot
+```{r heatmap, echo=TRUE}
+heatmap.2(mat, Rowv=as.dendrogram(hc),
+          symm=TRUE, trace="none",
+          col = rev(hmcol), margin=c(13, 13))
+```
+
+As seen previously the 1h treatments were an outgroup to everything else. Then the avr and vir samples from the first experiment seperated from the rest of the 6 and 12h time points. The mock 6 and 12 hour samples seperated from both avr and vir samples which is what we expected. Interestingly, the avr and vir samples from the second experiment were closer to the mock treatments than the samples from the first experiment. This supports the PCA plot that was shown earlier.
+
+
+
+### ACTUAL RESULTS!!! 
+First step is setting up the DESEQ data set and doing the analysis
+
+```{r, echo=TRUE}
+load.model <- formula(~ batch + hpi + infection + hpi:infection)
+
+all.data <- DESeqDataSetFromHTSeqCount(rna.design,design=load.model)
+all.data$infection = factor(all.data$infection, levels =  c("mock","avr", "vir"))
+all.data$hpi = factor(all.data$hpi, levels = c("1","6","12"))
+all.data$group <- factor(paste0(all.data$hpi,all.data$infection))
+
+#Add a group factor
+all.data$group = factor(all.data$group, levels=c("1mock","6mock","12mock","1vir","6vir","12vir","1avr","6avr","12avr")) #first item is the reference for everything else ie the background
+design(all.data) <- ~ batch + group
+#trim any row that has less than 10 counts total
+keep <- rowSums(counts(all.data)) >= 10
+all.data <- all.data[keep,]
+
+all.data2 <- DESeq(all.data)
+resultsNames(all.data2)
+plotDispEsts(all.data2)
+```
+Next some simple comparisons to look at some different genes. The main one i'll be looking at moving forward with TopGo is mock 12h vs avr 12h.
+```{r}
+res_mVa_12h <- results(all.data2, contrast = c("group", "12avr", "12mock"), alpha = 0.05, pAdjustMethod="BH")
+summary( res_mVa_12h )
+plotMA( res_mVa_12h , ylim =c(-5,5))
+res_mVa_12h  <-  res_mVa_12h [order( res_mVa_12h$padj),]
+gene = rownames( res_mVa_12h[1:20,])
+
+#looking at individual genes
+plotCounts(all.data2, 
+           gene = "AT2G37750",
+           intgroup="group",
+           pch = 20, col = "red")
+p_fake <- rbeta(32833, 1,1) # you could also use runif(12627,1,1)
+hist(p_fake, ylim=c (0,2500))
+hist(res_mVa_12h$pvalue)
+
+```
+Lets look at a couple interesting examples from each of the comparisons I ran.
+
+12mock vs 12avr:
+Lots of genes in auxin transport and regulation this makes sense
+
+12avr vs 12vir (avr will have activated ETI and will produce SA while vir will not)
+AT3G53420 - expressed specifically in vascular bundles regulates water channel activity. Located to PM.
+AT2G36830 - expressed highly in vascualar tissues transports urea. mRNA is cell-to-cell mobile
+AT5G62470 - MYB96 - TF involved in defense and response to salicylic acid.
+
+1h mock vs 1h avr
+AT1G52760 - Lignin biosynthesis (cell wall synthesis). Interestingly, there hasn't been a gene involved in hydrogen peroxide synthesis so far. This is the only evidence of hydrogen peroxide synthesis thus far. 
+
+
+After this I tried to investigate 1h avirulent compared to the 12h avirulent. What I found in the first 20 genes was that almost all of them just showed upregulation betwen 1h and 12h and there was nothing specific to the avirulent inoculation [image]. To control for this I first contrasted 1h mock and 12h mock and trimmed away any genes that showed a significant difference betwen these. Again when I reran this what resulted was a bunch of genes whose expression in the mock spiked at 6 hours then fell by 12h. While the avirulent expression stayed high until 12h. These genes were probably involved in the wounding response/ influx of water into the intercellular space. While this is interesting I wanted to look at the genes that were specfically regulated by infection. To accomplish this I also trimmed away any genes that were involved expressed at 6 hours.
+
+```{r}
+
+##An attempt at getting rid of the background differences between 1 avr and 12 avr that are present in the mock as well
+
+#Determine which genes are statistically significantly different between mock 1h and 12h as well as 1h vs 6h. Trim any genes that are significantly different in EITHER case while keep any genes that return NA
+trim <- results(all.data2, contrast = c("group", "1mock", "12mock"), alpha = 0.05, pAdjustMethod="BH")
+trim = trim$padj <0.05
+trim[is.na(trim)] = F
+trim2 <- results(all.data2, contrast = c("group", "1mock", "6mock"), alpha = 0.05, pAdjustMethod="BH")
+trim2 = trim2$padj <0.05
+trim2[is.na(trim2)] = F
+trim = trim + trim2
+trim = trim <1
+
+res_1hV12h_avr_trimmed <- results(all.data2, contrast = c("group", "12avr", "1avr"), alpha = 0.05, pAdjustMethod="BH")
+res_1hV12h_avr_trimmed = res_1hV12h_avr_trimmed[trim,]
+summary(res_1hV12h_avr_trimmed)
+plotMA(res_1hV12h_avr_trimmed, ylim =c(-10,10))
+res_1hV12h_avr_trimmed <- res_1hV12h_avr_trimmed[order(res_1hV12h_avr_trimmed$padj),]
+gene = rownames(res_1hV12h_avr_trimmed[1:20,])
+
+plotCounts(all.data2, 
+           gene = "AT1G32340",
+           intgroup="group",
+           pch = 20, col = "red")
+
+hist(p_fake, ylim=c (0,2500))
+hist(res_1hV12h_avr_trimmed$pvalue)
+
+```
+1avr vs 12 avr
+AT1G05680 - again involved in auxin
+AT5G19450 - CDPK19 - Involved in calcium dependent kinase pathways, which are involved in defense
+
+```{r}
+res_infVhpi_shrunk = lfcShrink(all.data2, coef = 2, type = "normal", lfcThreshold = 0)
+plotMA(res_infVhpi_shrunk, ylim=c(-2,2))
+summary(res_infVhpi_shrunk)
+res_infVhpi_shrunk <- res_infVhpi_shrunk[order(res_infVhpi_shrunk$padj),]
+gene =rownames(res_infVhpi_shrunk[1:20,])
+
+plotCounts(all.data2, 
+           gene = "AT5G40780",
+           intgroup="group",
+           pch = 20, col = "red")
+hist(p_fake, ylim=c (0,2500))
+hist(res_infVhpi_shrunk$pvalue)
+
+```
+Shrunk:
+AT1G13340 - ISTL6 (IST1-like 6)- response to oxidative stress and involved in protein transport in the vacuole through regulation of VPS4.

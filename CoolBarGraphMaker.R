@@ -11,7 +11,7 @@ rm(list=ls())
 #Reset and read the data
 rm(list=ls())
 mydata = read.csv(file = file.choose(),header=T) #pick a file
-mydata= read.table(file= "clipboard",sep= "\t",header =T) #read from clipboard
+mydata= read.table(file= "clipboard",sep= "\t",header =T, check.names = F) #read from clipboard
 mydata <- read.csv("VL-17-2.csv", header=TRUE) #tell R to read the data file and add it to the global environment 
 setwd("C:/Users/garre/OneDrive/Documents/Uni Year 4 Cameron Lab/Data/R WD")
 
@@ -298,3 +298,4 @@ ggplot(data =mydp, aes(x= type,y=cfu))+geom_bar(stat= "identity",color="black",p
   geom_text(aes(label=tuque), vjust=-4, color="black", position = position_dodge(0.9), size=7)+
   labs(x= NULL,y="Bacterial density(cfu/ld)")+theme_classic()+theme(text=element_text(size = 20),axis.text.x=element_text(angle=-45,vjust=0.55,size=16))
 
+for ()
