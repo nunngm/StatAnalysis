@@ -1,4 +1,17 @@
 ##Original gene_association, Gene-to-GO, and ObjectSymbol set-up
+library(DESeq2)
+library(RCurl)
+library(tximport)
+library(readr)
+library("RColorBrewer")
+library(gplots)
+library(topGO) 
+library(Rgraphviz) 
+library(dplyr)
+library(ggplot2)
+library(colorspace)
+library(ggrepel)
+library(VennDiagram)
 
 gene_associations <- read.delim("gene_association_final.txt", comment.char = "!", header = FALSE, as.is = TRUE) 
 colnames(gene_associations) <- c("DB", "DB_Object_ID", "DB_Object_Symbol", "Qualifier", "GO_ID",
@@ -32,3 +45,17 @@ objectSymbol = objectSymbol[unique(names(objectSymbol))]
 
 #load Pre-meade Gene-to-go from file
 gene_GO <- readMappings("TAIR_to_GO.delim")
+
+setwd("C:\\Users\\garre\\OneDrive\\Documents\\Cameron Lab- McMaster University\\Data\\Data-ARR RNA-seq\\Exp-R workshop")
+files <- file.path("counts", list.files("counts"))
+
+
+samples <- c("m_mg_0h_s1", "m_mg_0h_s2","m_mg_0h_s3","m_mg_12h_s1","m_mg_12h_s2","m_mg_12h_s3","m_mg_24h_s1","m_mg_24h_s2","m_mg_24h_s3","m_pst_0h_s1","m_pst_0h_s2","m_pst_0h_s3","m_pst_12h_s1","m_pst_12h_s2","m_pst_12h_s3","m_pst_24h_s1","m_pst_24h_s2","m_pst_24h_s3","y_mg_0h_s1","y_mg_0h_s2","y_mg_0h_s3","y_mg_12h_s1","y_mg_12h_s2","y_mg_12h_s3","y_mg_24h_s1","y_mg_24h_s2","y_mg_24h_s3","y_pst_0h_s1","y_pst_0h_s2","y_pst_0h_s3","y_pst_12h_s1","y_pst_12h_s2","y_pst_12h_s3","y_pst_24h_s1","y_pst_24h_s2","y_pst_24h_s3")
+names(files) <- samples
+
+vg = function(accession){
+  plotCounts(all.data2, 
+             gene = toupper(accession),
+             intgroup="group",
+             pch = 20, col = "red")
+}
