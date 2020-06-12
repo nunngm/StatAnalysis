@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1585849408261.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2249041160",
+    "id" : "1082ADE2",
+    "lastKnownWriteTime" : 1585849077,
+    "last_content_update" : 1585849077,
+    "path" : "C:/Users/garre/OneDrive/Documents/Cameron Lab- McMaster University/Major R Scripts/GARP/R/aheatmap.R",
+    "project_path" : "R/aheatmap.R",
+    "properties" : {
+    },
+    "relative_order" : 10,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
