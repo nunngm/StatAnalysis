@@ -52,10 +52,35 @@ group <- if (length("group") > 1) {
 }
 
 #Selecting the principle components
-pc.x = 5
-pc.y = 6
-d <- data.frame(PC1 = pca$x[, pc.x], PC2 = pca$x[, pc.y], group = "group", 
-                intgroup.df, name = colData(for_pca)[,1]) #In pca$x[,]
+pc.x = 1
+pc.y = 2
+d <- data.frame(PC1 = pca$x[, pc.x], PC2 = pca$x[, pc.y], 
+                group = intgroup.df, 
+                age = colData(for_pca)[,1],
+                inf = colData(for_pca)[,2],
+                hpi = colData(for_pca)[,3],
+                ageinf = as.integer(as.factor(paste0(d$age,d$)))) #In pca$x[,]
+temp = as.integer(as.factor(paste0(d$inf,d$age)))
+temp = lapply(temp, function(x){tmp = if (x>2){
+    x=15+(x-3)
+} else{
+    x = x-1
+  }
+  return(tmp)
+})
+temp =unlist(temp)
 
 #Drawing the PCA plot and demonstrating variance
-p=ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group.1", label = "group.1")) + geom_point(size = 3) + xlab(paste0("PC ",pc.x,": ", round(percentVar[pc.x] * 100), "% variance")) + ylab(paste0("PC ",pc.y,": ", round(percentVar[pc.y] * 100), "% variance")) + coord_fixed() + geom_text_repel(size=3)
+ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "hpi")) + geom_point(size = 4,shape =temp,stroke = 1.5) + xlab(paste0("PC ",pc.x," (", round(percentVar[pc.x] * 100), "% variance)")) + ylab(paste0("PC ",pc.y," (", round(percentVar[pc.y] * 100), "% variance)")) + coord_fixed() +theme(panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(), 
+    axis.line = element_line(colour = "black", size=1),
+    axis.title.x=element_text(size=15),
+    #axis.text.x=element_blank()),
+    axis.ticks=element_line(colour = "black", size =1),
+    axis.ticks.length = unit(5,"points") ,
+    axis.title.y = element_text(size=15),
+    legend.position = "right",
+    axis.text = element_text(size=15),
+)
+

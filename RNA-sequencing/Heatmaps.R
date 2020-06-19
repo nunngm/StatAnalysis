@@ -14,14 +14,15 @@ library(GenAnalysis)
 
 
 hmcol = hcl_palettes(palette = "Berlin") #Setting the colour palatte
-
+for_pca <- rlog(all.data2, blind=T)
 rlogMat <- assay(for_pca) # just making a matrix of the counts that have been corrected for over-dispersion in a "blind" fashion
+
 distsRL <- dist(t(rlogMat)) # Computes a distance matrix (Euclidian Distance)
 mat <- as.matrix(distsRL)  # Make sure it is a matrix
 
 rownames(mat) <- colnames(mat) <-   with(colData(all.data2), paste(age, infection, hpi, sep=" : "))
 
-hc <- hclust(distsRL)  # performs hierarchical clustering
+hc <- hclust(distsRL,method = "average")  # performs hierarchical clustering
 par(mar=c(7,4,4,2)+0.1)
 hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(20)# picking our colours
 p=heatmap.2(mat, Rowv=as.dendrogram(hc),
@@ -213,9 +214,9 @@ lfc = lfc[rownames(lfc)%in% goi,]
 length(goi) ==nrow(lfc)
 sum(rownames(lfc) ==goi) ==nrow(lfc)
 
-hmcol = sequential_hcl(5,h = 65,c =105,l =c(100,0), power =2 ) #yellow
+hmcol = sequential_hcl(4,h = 65,c =150,l =c(100,0), power =2 ) #yellow
 show_col(hmcol)
-hmcol = c(sequential_hcl(5,h = 253,c =100,l =c(60,0), power =2 ) ,hmcol[(length(hmcol)-1):1])
+hmcol = c(sequential_hcl(4,h = 215,c =115,l =c(65,0), power =2 ) ,hmcol[(length(hmcol)-1):1])
 show_col(hmcol)#Selecting colours for the hierarchical cluster
 p=GenAnalysis::aheatmap(lfc,color = hmcol, midpoint = 0,
                         clusterWithScaledData = F,scale="none", cluster_cols = F,
