@@ -57,15 +57,18 @@ all.data2 <- DESeq(all.data)
 #contrast = c(intgroup,Var1, Var2) -> contrasts Var 1 to reference (Var2)
 #pAdjustMethod ="BH" -> is the false discovery rate method
 ## lfc Shrinkage doesn't matter here as p-values are calculated based on unshrunken values therefore shrinkage should only be used for data visualisation and for ranking of genes
-res.y= results(all.data2,contrast = c("group", "ypst24", "ymg24"), alpha = 0.05, pAdjustMethod="BH")
+res.y= results(all.data2,contrast = c("group", "ypst0", "ymg0"), alpha = 0.05, pAdjustMethod="BH")
 temp = as.data.frame(res.y@listData)
 rownames(temp) = res.y@rownames
 res.y = temp
 
-res.m = results(all.data2,contrast = c("group","mpst24","mmg24"),alpha =0.05, pAdjustMethod = "BH")
+res.m = results(all.data2,contrast = c("group","mpst0","mmg0"),alpha =0.05, pAdjustMethod = "BH")
 temp = as.data.frame(res.m@listData)
 rownames(temp) = res.m@rownames
 res.m = temp
+
+
+
 
 ##Collect up and down genes
 y.up = res.y[res.y$log2FoldChange > 0,]$padj #collect genes where fold change is positive (up-regulated)

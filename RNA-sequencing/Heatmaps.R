@@ -1,4 +1,17 @@
 #Heat mapping
+library(DESeq2)
+library(RCurl)
+library("RColorBrewer")
+library(gplots)
+library(topGO) 
+library(Rgraphviz) 
+library(dplyr)
+library(ggplot2)
+library(colorspace)
+library(ggrepel)
+library(NMF)
+library(GenAnalysis)
+
 
 hmcol = hcl_palettes(palette = "Berlin") #Setting the colour palatte
 
@@ -19,7 +32,6 @@ ggsave("heatmap.pdf",plot = p)
 ##Begin intense heatmapping here
 
 #Make a dataframe with the average normailized count number for each of the samples
-library(NMF)
 all.data2 = estimateSizeFactors(all.data2)
 sizeFactors(all.data2) 
 treatcounts = cbind(rowMeans(counts(all.data2,normalized = T)[,1:3]),
@@ -158,7 +170,6 @@ plotCounts(all.data2,
 #NMF Heatmaps
 
 #An old way of making a heatmap
-library(NMF)
 log.norm.counts <- log2(counts(all.data2, normalized=TRUE) + 1)
 res_mVa_12h <- results(all.data2, contrast = c("group", "mpst24", "mmg24"), alpha = 0.05, pAdjustMethod="BH")
 summary( res_mVa_12h )
@@ -173,3 +184,65 @@ aheatmap(hm.mat_DGEgenes, Rowv = T, Colv = T, distfun= "euclidean",treeheight = 
 p_fake <- rbeta(32833, 1,1) # you could also use runif(12627,1,1)
 hist(p_fake, ylim=c (0,2500))
 hist(res_mVa_12h$pvalue)
+
+#calling the variables
+goi= vector()
+lfc = matrix(nrow =nrow(res),ncol = 6 )
+agehpi = vector()
+for (i in 1:nlevels(hpi)){ #I wanted to do y0 m0 y12 etc order so the 0 hours had to be grouped together
+  for(j in nlevels(age):1){ #reversed the order so young then mature
+    res = results(all.data2,contrast = c("group",paste0(levels(age)[j],"pst",levels(hpi)[i]),paste0(levels(age)[j],"mg",levels(hpi)[i])),alpha =0.05, pAdjustMethod = "BH")
+    temp = as.data.frame(res@listData)
+    rownames(temp) = res@rownames
+    res = temp
+    temp = res[abs(res$log2FoldChange)>1,]$padj #Selects genes which have a |l2fc|>1
+    names(temp) = rownames(res[abs(res$log2FoldChange)>1,])
+    temp = temp[complete.cases(temp)]
+    temp = names(temp[temp<0.01]) #Selects genes with a <1% FDR
+    goi=c(goi,temp)
+    # names(temp) = rownames(res)
+    lfc[,(i*2)-1+2-j] = res$log2FoldChange
+    agehpi = c(agehpi,paste0(levels(age)[j],levels(hpi)[i]))
+  }
+}
+rownames(lfc) = rownames(res)
+colnames(lfc) = agehpi
+goi = unique(goi)
+goi = goi[order(goi)]
+lfc = lfc[rownames(lfc)%in% goi,]
+length(goi) ==nrow(lfc)
+sum(rownames(lfc) ==goi) ==nrow(lfc)
+
+hmcol = sequential_hcl(5,h = 65,c =105,l =c(100,0), power =2 ) #yellow
+show_col(hmcol)
+hmcol = c(sequential_hcl(5,h = 253,c =100,l =c(60,0), power =2 ) ,hmcol[(length(hmcol)-1):1])
+show_col(hmcol)#Selecting colours for the hierarchical cluster
+p=GenAnalysis::aheatmap(lfc,color = hmcol, midpoint = 0,
+                        clusterWithScaledData = F,scale="none", cluster_cols = F,
+                        clustering_method = "average", clustering_distance_rows = "euclidean",
+                        filename = "bad.pdf",border_color = NA , shrink = 1.5,returnTree = T, 
+                        show_rownames = F, show_colnames = T,
+                        cellwidth = 20, truncate = T,Upper = 4, Lower = -4
+)
+rownames(lfc) = objectSymbol[rownames(lfc)]
+write.table(lfc,file = "lfc.txt",sep = "\t")
+#Used CLUSTER 3.0 pearson uncentered and average linkage
+lfc2 = read.delim(file = "lfc2.txt",sep = "\t",stringsAsFactors = F)
+lfc2 = lfc2[2:nrow(lfc2),1]
+temp = lapply(rownames(lfc), function(x){tmp = grep(x,lfc2)
+return(tmp)})
+temp = unlist(temp)
+length(temp) ==nrow(lfc)
+lfc2 = lfc[temp,]
+sum(rownames(lfc)[temp] == rownames(lfc2))
+p=GenAnalysis::aheatmap(lfc2,color = hmcol, midpoint = 0,
+                        clusterWithScaledData = F,scale="none", cluster_cols = F,
+                        cluster_rows = F,
+                        filename = "bad.pdf",border_color = NA , shrink = 1.5,returnTree = T, 
+                        show_rownames = T, show_colnames = T,
+                        cellwidth = 20,cellheight = 2,fontsize_row =   32, truncate = T,Upper = 4, Lower = -4
+)
+
+
+
+
