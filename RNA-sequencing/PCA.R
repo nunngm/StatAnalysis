@@ -1,6 +1,6 @@
 #PCA component analysis
 
-for_pca <- rlog(all.data2, blind=T) #Blind = F as we are trying to see if something is wrong with the experiment design so we want rlog to know all the variables to see if there is a crazy outlier
+for_pca <- rlog(allData, blind=T) #Blind = F as we are trying to see if something is wrong with the experiment design so we want rlog to know all the variables to see if there is a crazy outlier
 dim(for_pca) ##Making sure all genes and samples are preserved
 
 
@@ -35,7 +35,7 @@ install.packages("ggrepel") #only need to run once
 library(ggrepel)
 
 #Additional PCA components
-for_pca <- rlog( all.data2, blind = T )
+for_pca <- rlog( allData, blind = T )
 rv <- rowVars(assay(for_pca))
 # select the ntop genes by variance (across treatment groups)
 ntop = 10000
@@ -44,18 +44,18 @@ select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
 # perform a PCA on the data in assay(x) for the selected genes
 pca <- prcomp(t(assay(for_pca)[select,]))
 percentVar <- pca$sdev^2/sum(pca$sdev^2)
-intgroup.df <- as.data.frame(colData(all.data2)[, "group", drop = FALSE])
+intgroup_df <- as.data.frame(colData(allData)[, "group", drop = FALSE])
 group <- if (length("group") > 1) {
-  factor(apply(intgroup.df, 1, paste, collapse = " : "))
+  factor(apply(intgroup_df, 1, paste, collapse = " : "))
 } else{
-  colData(all.data2)[["group"]]
+  colData(allData)[["group"]]
 }
 
 #Selecting the principle components
-pc.x = 1
-pc.y = 2
-d <- data.frame(PC1 = pca$x[, pc.x], PC2 = pca$x[, pc.y], 
-                group = intgroup.df, 
+pc_x = 3
+pc_y = 4
+d <- data.frame(PC1 = pca$x[, pc_x], PC2 = pca$x[, pc_y], 
+                group = intgroup_df, 
                 age = colData(for_pca)[,1],
                 inf = colData(for_pca)[,2],
                 hpi = colData(for_pca)[,3],
@@ -71,7 +71,7 @@ temp = lapply(temp, function(x){tmp = if (x>2){
 temp =unlist(temp)
 
 #Drawing the PCA plot and demonstrating variance
-ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "hpi")) + geom_point(size = 4,shape =temp,stroke = 1.5) + xlab(paste0("PC ",pc.x," (", round(percentVar[pc.x] * 100), "% variance)")) + ylab(paste0("PC ",pc.y," (", round(percentVar[pc.y] * 100), "% variance)")) + coord_fixed() +theme(panel.grid.major = element_blank(), 
+ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "hpi")) + geom_point(size = 4,shape =temp,stroke = 1.5) + xlab(paste0("PC ",pc_x," (", round(percentVar[pc_x] * 100), "% variance)")) + ylab(paste0("PC ",pc_y," (", round(percentVar[pc_y] * 100), "% variance)")) + coord_fixed() +theme(panel.grid.major = element_blank(), 
     panel.grid.minor = element_blank(),
     panel.background = element_blank(), 
     axis.line = element_line(colour = "black", size=1),

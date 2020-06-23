@@ -53,9 +53,9 @@ files <- file.path("counts", list.files("counts"))
 samples <- c("m_mg_0h_s1", "m_mg_0h_s2","m_mg_0h_s3","m_mg_12h_s1","m_mg_12h_s2","m_mg_12h_s3","m_mg_24h_s1","m_mg_24h_s2","m_mg_24h_s3","m_pst_0h_s1","m_pst_0h_s2","m_pst_0h_s3","m_pst_12h_s1","m_pst_12h_s2","m_pst_12h_s3","m_pst_24h_s1","m_pst_24h_s2","m_pst_24h_s3","y_mg_0h_s1","y_mg_0h_s2","y_mg_0h_s3","y_mg_12h_s1","y_mg_12h_s2","y_mg_12h_s3","y_mg_24h_s1","y_mg_24h_s2","y_mg_24h_s3","y_pst_0h_s1","y_pst_0h_s2","y_pst_0h_s3","y_pst_12h_s1","y_pst_12h_s2","y_pst_12h_s3","y_pst_24h_s1","y_pst_24h_s2","y_pst_24h_s3")
 names(files) <- samples
 
-sub.0 = c(1:3,10:12,19:21,28:30)
-sub.12 = c(4:6,13:15,22:24,31:33)
-sub.24 = c(7:9,16:18,25:27,34:36)
+sub_0 = c(1:3,10:12,19:21,28:30)
+sub_12 = c(4:6,13:15,22:24,31:33)
+sub_24 = c(7:9,16:18,25:27,34:36)
 
 ```
 
@@ -79,14 +79,14 @@ age = as.factor(age)
 length(age)
 
 
-design.full <- data.frame(sample=names(files),
+design_full <- data.frame(sample=names(files),
   file=files,
   age=age,
   infection =infection,
   hpi=hpi
   )
 
-design.full
+design_full
 
 
 ```
@@ -94,29 +94,29 @@ design.full
 
 ```{r}
 
-model.full <- formula(~age+infection+hpi) ##very general model that just has all the sample information
+model_full <- formula(~age+infection+hpi) ##very general model that just has all the sample information
 
-all.data <- DESeqDataSetFromHTSeqCount(design.full,design=model.full)
-all.data$infection = factor(all.data$infection, levels =  c("mg","pst"))
-all.data$hpi = factor(all.data$hpi, levels = c("0","12","24"))
-all.data$age = factor(all.data$age, levels = c("y","m"))
+rawData <- DESeqDataSetFromHTSeqCount(design_full,design=model_full)
+rawData$infection = factor(rawData$infection, levels =  c("mg","pst"))
+rawData$hpi = factor(rawData$hpi, levels = c("0","12","24"))
+rawData$age = factor(rawData$age, levels = c("y","m"))
 
 #Make group fator and trim any row that has less than 10 counts total
 ## This allows us to pick our treatment group (ie ymg0h rather than all of each type (all of 0 hpi or all of youbg or all of mock))
-all.data$group <- factor(paste0(all.data$age,all.data$infection,all.data$hpi))
-all.data$group = factor(all.data$group,levels=c("ymg0","ymg12","ymg24","ypst0","ypst12","ypst24","mmg0","mmg12","mmg24","mpst0","mpst12","mpst24"))
-keep <- rowSums(counts(all.data)) >= 360
-all.data <- all.data[keep,]
+rawData$group <- factor(paste0(rawData$age,rawData$infection,rawData$hpi))
+rawData$group = factor(rawData$group,levels=c("ymg0","ymg12","ymg24","ypst0","ypst12","ypst24","mmg0","mmg12","mmg24","mpst0","mpst12","mpst24"))
+keep <- rowSums(counts(rawData)) >= 360
+rawData <- rawData[keep,]
 
 #Lets redi the model design to encompass every sample individually
-all.data@design = ~group
-all.data2 <- DESeq(all.data)
-res.full <- results(all.data2, alpha = 0.05)
-summary(res.full)
+rawData@design = ~group
+allData <- DESeq(rawData)
+res_full <- results(allData, alpha = 0.05)
+summary(res_full)
 
 # let'quickly look at a couple genes -> None of them look interesting
-head(res.full[order(res.full$padj),])
-plotDispEsts(all.data2) #Plots the corrects the dat underwent through analysis with DESeq Blue is after black is before
+head(res_full[order(res_full$padj),])
+plotDispEsts(allData) #Plots the corrects the dat underwent through analysis with DESeq Blue is after black is before
 
 #If "object 'gene_associations" not found:
 gene_associations <- read.delim("gene_association_final.txt", comment.char = "!", header = FALSE, as.is = TRUE) #There were quotation marks in the original file so it was throwing R threw a loop when I would run code (You do not want to know how long that took me to figure out). So I ran unefficient code to go line by line and remove any quotation marks. Which produced the "gene_association_final.txt".
@@ -136,7 +136,7 @@ objectSymbol = unlist2(objectSymbol)
 objectSymbol = objectSymbol[unique(names(objectSymbol))]
 
 vg = function(accession){
-  plotCounts(all.data2, 
+  plotCounts(allData, 
            gene = toupper(accession),
            intgroup="group",
            pch = 20, col = "red")
@@ -147,7 +147,7 @@ vg = function(accession){
 #Pretty PCA plot
 ```{r}
 
-for_pca <- rlog(all.data2, blind=T) #Blind = F as we are trying to see if something is wrong with the experiment design so we want rlog to know all the variables to see if there is a crazy outlier
+for_pca <- rlog(allData, blind=T) #Blind = F as we are trying to see if something is wrong with the experiment design so we want rlog to know all the variables to see if there is a crazy outlier
 dim(for_pca) ##Making sure all genes and samples are preserved
 
 
@@ -185,7 +185,7 @@ install.packages("ggrepel") #only need to run once
 library(ggrepel)
 
 #Additional PCA components
-for_pca <- rlog( all.data2, blind = T )
+for_pca <- rlog( allData, blind = T )
 rv <- rowVars(assay(for_pca))
 # select the ntop genes by variance (across treatment groups)
 ntop = 10000
@@ -194,21 +194,21 @@ select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
 # perform a PCA on the data in assay(x) for the selected genes
 pca <- prcomp(t(assay(for_pca)[select,]))
 percentVar <- pca$sdev^2/sum(pca$sdev^2)
-intgroup.df <- as.data.frame(colData(all.data2)[, "group", drop = FALSE])
+intgroup_df <- as.data.frame(colData(allData)[, "group", drop = FALSE])
 group <- if (length("group") > 1) {
-    factor(apply(intgroup.df, 1, paste, collapse = " : "))
+    factor(apply(intgroup_df, 1, paste, collapse = " : "))
   } else{
-    colData(all.data2)[["group"]]
+    colData(allData)[["group"]]
   }
 
 #Selecting the principle components
-pc.x = 5
-pc.y = 6
-d <- data.frame(PC1 = pca$x[, pc.x], PC2 = pca$x[, pc.y], group = "group", 
-                  intgroup.df, name = colData(for_pca)[,1]) #In pca$x[,]
+pc_x = 5
+pc_y = 6
+d <- data.frame(PC1 = pca$x[, pc_x], PC2 = pca$x[, pc_y], group = "group", 
+                  intgroup_df, name = colData(for_pca)[,1]) #In pca$x[,]
 
 #Drawing the PCA plot and demonstrating variance
-p=ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group.1", label = "group.1")) + geom_point(size = 3) + xlab(paste0("PC ",pc.x,": ", round(percentVar[pc.x] * 100), "% variance")) + ylab(paste0("PC ",pc.y,": ", round(percentVar[pc.y] * 100), "% variance")) + coord_fixed() + geom_text_repel(size=3)
+p=ggplot(data = d, aes_string(x = "PC1", y = "PC2", color = "group.1", label = "group.1")) + geom_point(size = 3) + xlab(paste0("PC ",pc_x,": ", round(percentVar[pc_x] * 100), "% variance")) + ylab(paste0("PC ",pc_y,": ", round(percentVar[pc_y] * 100), "% variance")) + coord_fixed() + geom_text_repel(size=3)
 ```
 
 
@@ -220,7 +220,7 @@ rlogMat <- assay(for_pca) # just making a matrix of the counts that have been co
 distsRL <- dist(t(rlogMat)) # Computes a distance matrix (Euclidian Distance)
 mat <- as.matrix(distsRL)  # Make sure it is a matrix
 
-rownames(mat) <- colnames(mat) <-   with(colData(all.data2), paste(age, infection, hpi, sep=" : "))
+rownames(mat) <- colnames(mat) <-   with(colData(allData), paste(age, infection, hpi, sep=" : "))
 
 hc <- hclust(distsRL)  # performs hierarchical clustering
 par(mar=c(7,4,4,2)+0.1)
@@ -251,60 +251,60 @@ Now we are ready to make the TopGo objects!! We will make one for both up and do
 #contrast = c(intgroup,Var1, Var2) -> contrasts Var 1 to reference (Var2)
 #pAdjustMethod ="BH" -> is the false discovery rate method
 ## lfc Shrinkage doesn't matter here as p-values are calculated based on unshrunken values therefore shrinkage should only be used for data visualisation and for ranking of genes
-res.y= results(all.data2,contrast = c("group", "ypst24", "ymg24"), alpha = 0.05, pAdjustMethod="BH")
-temp = as.data.frame(res.y@listData)
-rownames(temp) = res.y@rownames
-res.y = temp
+res_y= results(allData,contrast = c("group", "ypst24", "ymg24"), alpha = 0.05, pAdjustMethod="BH")
+temp = as.data.frame(res_y@listData)
+rownames(temp) = res_y@rownames
+res_y = temp
 
-res.m = results(all.data2,contrast = c("group","mpst24","mmg24"),alpha =0.05, pAdjustMethod = "BH")
-temp = as.data.frame(res.m@listData)
-rownames(temp) = res.m@rownames
-res.m = temp
+res_m = results(allData,contrast = c("group","mpst24","mmg24"),alpha =0.05, pAdjustMethod = "BH")
+temp = as.data.frame(res_m@listData)
+rownames(temp) = res_m@rownames
+res_m = temp
 
-res.mm = results(all.data2,contrast = c("group","mmg12","ymg12"),alpha =0.05, pAdjustMethod = "BH")
-temp = as.data.frame(res.mm@listData)
-rownames(temp) = res.mm@rownames
-res.mm = temp
+res_mm = results(allData,contrast = c("group","mmg12","ymg12"),alpha =0.05, pAdjustMethod = "BH")
+temp = as.data.frame(res_mm@listData)
+rownames(temp) = res_mm@rownames
+res_mm = temp
 
-res.yy = results(all.data2,contrast = c("group","mmg12","ymg12"),alpha =0.05, pAdjustMethod = "BH")
-temp = as.data.frame(res.yy@listData)
-rownames(temp) = res.yy@rownames
-res.yy = temp
+res_yy = results(allData,contrast = c("group","mmg12","ymg12"),alpha =0.05, pAdjustMethod = "BH")
+temp = as.data.frame(res_yy@listData)
+rownames(temp) = res_yy@rownames
+res_yy = temp
 remove(temp)
 
 
 ##Collect up and down genes
-y.up = res.y[res.y$log2FoldChange > 0,]$padj #collect genes where fold change is positive (up-regulated)
-names(y.up) <- rownames(res.y[res.y$log2FoldChange > 0,]) #collect the genenames
-y.up <- y.up[complete.cases(y.up)] #remove any NAs
+y_up = res_y[res_y$log2FoldChange > 0,]$padj #collect genes where fold change is positive (up-regulated)
+names(y_up) <- rownames(res_y[res_y$log2FoldChange > 0,]) #collect the genenames
+y_up <- y_up[complete.cases(y_up)] #remove any NAs
 
-y.down = res.y[res.y$log2FoldChange < 0,]$padj #see above but for down-reg genes
-names(y.down) <- rownames(res.y[res.y$log2FoldChange < 0,]) 
-y.down <- y.down[complete.cases(y.down)]
+y_down = res_y[res_y$log2FoldChange < 0,]$padj #see above but for down-reg genes
+names(y_down) <- rownames(res_y[res_y$log2FoldChange < 0,]) 
+y_down <- y_down[complete.cases(y_down)]
 
-m.up = res.m[res.m$log2FoldChange > 0,]$padj 
-names(m.up) <- rownames(res.m[res.m$log2FoldChange > 0,]) 
-m.up <- m.up[complete.cases(m.up)]
+m_up = res_m[res_m$log2FoldChange > 0,]$padj 
+names(m_up) <- rownames(res_m[res_m$log2FoldChange > 0,]) 
+m_up <- m_up[complete.cases(m_up)]
 
-m.down = res.m[res.m$log2FoldChange < 0,]$padj 
-names(m.down) <- rownames(res.m[res.m$log2FoldChange < 0,]) 
-m.down <- m.down[complete.cases(m.down)]
+m_down = res_m[res_m$log2FoldChange < 0,]$padj 
+names(m_down) <- rownames(res_m[res_m$log2FoldChange < 0,]) 
+m_down <- m_down[complete.cases(m_down)]
 
-mm.up = res.mm[res.mm$log2FoldChange > 0,]$padj 
-names(mm.up) <- rownames(res.mm[res.mm$log2FoldChange > 0,]) 
-mm.up <- mm.up[complete.cases(mm.up)]
+mm_up = res_mm[res_mm$log2FoldChange > 0,]$padj 
+names(mm_up) <- rownames(res_mm[res_mm$log2FoldChange > 0,]) 
+mm_up <- mm_up[complete.cases(mm_up)]
 
-mm.down = res.mm[res.mm$log2FoldChange < 0,]$padj 
-names(mm.down) <- rownames(res.mm[res.mm$log2FoldChange < 0,]) 
-mm.down <- mm.down[complete.cases(mm.down)]
+mm_down = res_mm[res_mm$log2FoldChange < 0,]$padj 
+names(mm_down) <- rownames(res_mm[res_mm$log2FoldChange < 0,]) 
+mm_down <- mm_down[complete.cases(mm_down)]
 
-yy.up = res.yy[res.yy$log2FoldChange > 0,]$padj 
-names(yy.up) <- rownames(res.yy[res.yy$log2FoldChange > 0,]) 
-yy.up <- yy.up[complete.cases(yy.up)]
+yy_up = res_yy[res_yy$log2FoldChange > 0,]$padj 
+names(yy_up) <- rownames(res_yy[res_yy$log2FoldChange > 0,]) 
+yy_up <- yy_up[complete.cases(yy_up)]
 
-yy.down = res.yy[res.yy$log2FoldChange < 0,]$padj 
-names(yy.down) <- rownames(res.yy[res.yy$log2FoldChange < 0,]) 
-yy.down <- yy.down[complete.cases(yy.down)]
+yy_down = res_yy[res_yy$log2FoldChange < 0,]$padj 
+names(yy_down) <- rownames(res_yy[res_yy$log2FoldChange < 0,]) 
+yy_down <- yy_down[complete.cases(yy_down)]
 
 ```
 
@@ -313,8 +313,8 @@ yy.down <- yy.down[complete.cases(yy.down)]
 ```{r}
 
 #Make a data frame with linear fold change and adjusted P-values
-temp = cbind(res.y$baseMean,res.y$log2FoldChange,res.y$padj,res.m$log2FoldChange,res.m$padj)
-rownames(temp) = rownames(res.y)
+temp = cbind(res_y$baseMean,res_y$log2FoldChange,res_y$padj,res_m$log2FoldChange,res_m$padj)
+rownames(temp) = rownames(res_y)
 temp = as.data.frame(temp)
 colnames(temp) = c("mc","yfc","ypval","mfc","mpval")
 
@@ -363,24 +363,24 @@ write.csv(temp,"temp.csv")
 ##Venn diagrammy stuff (go analysis to look at genes in certain parts of a venn diagram)
 
 ```{r}
-goi.y = y.down #sets the genes of interest for young plants
-goi.m = m.down #sets the genes of interested for mature plants
-goi.mm = mm.up
-goi.yy = yy.up
+goi_y = y_down #sets the genes of interest for young plants
+goi_m = m_down #sets the genes of interested for mature plants
+goi_mm = mm_up
+goi_yy = yy_up
 
 #Filter out genes that are not significant
-sg.y = names(goi.y[goi.y<0.05])
-sg.m = names(goi.m[goi.m<0.05])
-sg.mm = names(goi.mm[goi.mm<0.05])
-sg.yy =names(goi.yy[goi.yy<0.05])
+sg_y = names(goi_y[goi_y<0.05])
+sg_m = names(goi_m[goi_m<0.05])
+sg_mm = names(goi_mm[goi_mm<0.05])
+sg_yy =names(goi_yy[goi_yy<0.05])
 
 #All genes sets all the unique genes in the environment and can be used to compare back too
-allGenes = c(sg.y,sg.m)
+allGenes = c(sg_y,sg_m)
 allGenes = unique(allGenes)
 
 #Set the colours for the venn diagram
 colors = c("#c3db0f","#2cff21","#6b7fff","#ff4059","#de4dff")
-venn.diagram(x = list(sg.y,sg.m,sg.mm),
+venn.diagram(x = list(sg_y,sg_m,sg_mm),
              category.names = c("Y.Ps>Y.Mo","M.Ps>M.Mo","M.Mo>Y.Mo"),
              filename = "3venn12h.tiff",
              output = T,
@@ -393,7 +393,7 @@ venn.diagram(x = list(sg.y,sg.m,sg.mm),
              cat.dist = c(0.12, 0.12,0.04),
              margin =0.15)
 #Two-way venn diagram - More useful
-venn.diagram(x = list(sg.y,sg.m),
+venn.diagram(x = list(sg_y,sg_m),
              category.names = c("Y.Mo>Y.Ps","M.Mo>M.Ps"),
              filename = "temp.tiff",
              output = T,
@@ -409,16 +409,16 @@ venn.diagram(x = list(sg.y,sg.m),
              margin =0.15)
 
 #Specifies which part of the Venn diagram you would like to complete GO enrichment on
-geneList = as.integer(allGenes %in% sg.y)
+geneList = as.integer(allGenes %in% sg_y)
 names(geneList) = allGenes
-geneList[geneList==1] = as.integer( names(geneList[geneList==1])%in% sg.m)
-geneList[geneList==1] = as.integer( names(geneList[geneList==1])%in% sg.mm)
+geneList[geneList==1] = as.integer( names(geneList[geneList==1])%in% sg_m)
+geneList[geneList==1] = as.integer( names(geneList[geneList==1])%in% sg_mm)
 sum(geneList)
 
 geneList = as.factor(geneList) #This has to be a factor for TopGO
 
 #Instead of just comparing to an environment of DEGs this allow comparison to all genes (which have an average expression >10 reads).
-totalGenes = unique(c(names(goi.y),names(goi.m)))
+totalGenes = unique(c(names(goi_y),names(goi_m)))
 geneList2 = as.integer(totalGenes %in% names(geneList[geneList==1]))
 names(geneList2) = totalGenes
 sum(geneList2)
@@ -432,16 +432,16 @@ GOdata <- new("topGOdata",
               gene2GO = gene_GO) 
 
 fisher_test <- new("classicCount", testStatistic = GOFisherTest, name = "fisher_test")
-fisher.GO <- getSigGroups(GOdata, fisher_test)
-fisher.GO
+fisher_GO <- getSigGroups(GOdata, fisher_test)
+fisher_GO
 
 #Lets see the most significant ones
-table.GO <- GenTable(GOdata, Fisher = fisher.GO, topNodes = 50)
-table.GO #A table of significant terms
+table_GO <- GenTable(GOdata, Fisher = fisher_GO, topNodes = 50)
+table_GO #A table of significant terms
 
 #A tree of the significant terms
 par(cex = 0.2)
-showSigOfNodes(GOdata, score(fisher.GO), firstSigNodes = 15, useInfo = 'all')
+showSigOfNodes(GOdata, score(fisher_GO), firstSigNodes = 15, useInfo = 'all')
 
 #GO term -> significant genes in goi list
 allGO = genesInTerm(GOdata)
@@ -449,23 +449,23 @@ sigGenes = lapply(allGO,function(x) x[x %in% names(geneList[geneList==1])] )
 objectSymbol[sigGenes[["GO:0009725"]]]
 
 #This outputs a file with all of the genes of interest from each part of a two-way venn diagram as a list with gene names and descriptions
-venn.y = as.integer(allGenes %in% sg.y)
-names(venn.y) = allGenes
-venn.y[venn.y==1] = as.integer(! names(venn.y[venn.y==1])%in% sg.m)
-venn.m = as.integer(allGenes %in% sg.m)
-names(venn.m) = allGenes
-venn.m[venn.m==1] = as.integer(! names(venn.m[venn.m==1])%in% sg.y)
-venn.both = as.integer(allGenes %in% sg.y)
-names(venn.both) = allGenes
-venn.both[venn.both==1] = as.integer( names(venn.both[venn.both==1])%in% sg.m)
-sum(venn.y)
-sum(venn.both)
-sum(venn.m)
-venn.y = names(venn.y[venn.y==1])
-venn.m = names(venn.m[venn.m==1])
-venn.both = names(venn.both[venn.both==1])
+venn_y = as.integer(allGenes %in% sg_y)
+names(venn_y) = allGenes
+venn_y[venn_y==1] = as.integer(! names(venn_y[venn_y==1])%in% sg_m)
+venn_m = as.integer(allGenes %in% sg_m)
+names(venn_m) = allGenes
+venn_m[venn_m==1] = as.integer(! names(venn_m[venn_m==1])%in% sg_y)
+venn_both = as.integer(allGenes %in% sg_y)
+names(venn_both) = allGenes
+venn_both[venn_both==1] = as.integer( names(venn_both[venn_both==1])%in% sg_m)
+sum(venn_y)
+sum(venn_both)
+sum(venn_m)
+venn_y = names(venn_y[venn_y==1])
+venn_m = names(venn_m[venn_m==1])
+venn_both = names(venn_both[venn_both==1])
 
-venn = list(venn.y,venn.both,venn.m)
+venn = list(venn_y,venn_both,venn_m)
 venn =data.frame(lapply(venn, "length<-", max(lengths(venn))))
 venn = cbind(as.character(venn[,1]),as.character(venn[,1]),as.character(venn[,2]),as.character(venn[,2]),as.character(venn[,3]),as.character(venn[,3]))
 venn = cbind(venn[,1:2],desvec[venn[,1]],venn[,3:4],desvec[venn[,3]],venn[,5:6],desvec[venn[,5]])
@@ -485,44 +485,44 @@ write.csv(venn,"temp.csv")
 #I tried lots of different shrinkage methods and 
 library(ashr)
 contrast_treat = c("group","ypst24","ymg24")
-res.temp.y <- results(all.data2, contrast = contrast_treat, alpha = 0.05, pAdjustMethod="BH")
-res.shrunk.y= lfcShrink(all.data2,contrast = contrast_treat,res = res.temp.y,type = "ashr",lfcThreshold = 0)
+res_temp_y <- results(allData, contrast = contrast_treat, alpha = 0.05, pAdjustMethod="BH")
+res_shrunk_y= lfcShrink(allData,contrast = contrast_treat,res = res_temp_y,type = "ashr",lfcThreshold = 0)
 
 contrast_treat = c("group","mpst24","mmg24")
-res.temp.m <- results(all.data2, contrast = contrast_treat, alpha = 0.05, pAdjustMethod="BH")
-res.shrunk.m = lfcShrink(all.data2,contrast = contrast_treat,res = res.temp.m,type = "ashr",lfcThreshold = 0) #threshold at genes only expressed 1.5 fold more/less also found doing the res first to get adjusted P value worked the best
+res_temp_m <- results(allData, contrast = contrast_treat, alpha = 0.05, pAdjustMethod="BH")
+res_shrunk_m = lfcShrink(allData,contrast = contrast_treat,res = res_temp_m,type = "ashr",lfcThreshold = 0) #threshold at genes only expressed 1.5 fold more/less also found doing the res first to get adjusted P value worked the best
 
-plotMA(res.temp.y, ylim=c(-3,3)) #before shinkage
-plotMA(res.shrunk.y,ylim=c(-3,3)) #after
-plotMA(res.temp.m,ylim=c(-3,3)) #Before shrinkage
-plotMA(res.shrunk.m, ylim=c(-3,3)) #After shrinkage
+plotMA(res_temp_y, ylim=c(-3,3)) #before shinkage
+plotMA(res_shrunk_y,ylim=c(-3,3)) #after
+plotMA(res_temp_m,ylim=c(-3,3)) #Before shrinkage
+plotMA(res_shrunk_m, ylim=c(-3,3)) #After shrinkage
 
 #Summarizes # of DEGs for each
-summary(res.temp.y)
-summary(res.shrunk.y)
-summary(res.temp.m)
-summary(res.shrunk.m)
+summary(res_temp_y)
+summary(res_shrunk_y)
+summary(res_temp_m)
+summary(res_shrunk_m)
 
 #Top 10 most significantly DE genes
 ## top up regulated genes
-objectSymbol[rownames(tail(res.shrunk.y[order(res.shrunk.y$log2FoldChange),],n=20))]
-objectSymbol[rownames(tail(res.shrunk.m[order(res.shrunk.m$log2FoldChange),],n=20))]
+objectSymbol[rownames(tail(res_shrunk_y[order(res_shrunk_y$log2FoldChange),],n=20))]
+objectSymbol[rownames(tail(res_shrunk_m[order(res_shrunk_m$log2FoldChange),],n=20))]
 ##top down regulated genes
-objectSymbol[rownames(head(res.shrunk.y[order(res.shrunk.y$log2FoldChange),],n=20))]
-objectSymbol[rownames(head(res.shrunk.m[order(res.shrunk.m$log2FoldChange),],n=20))]
+objectSymbol[rownames(head(res_shrunk_y[order(res_shrunk_y$log2FoldChange),],n=20))]
+objectSymbol[rownames(head(res_shrunk_m[order(res_shrunk_m$log2FoldChange),],n=20))]
 
-temp.y = as.data.frame(res.shrunk.y@listData)
-rownames(temp.y) = res.shrunk.y@rownames
-temp.m = as.data.frame(res.shrunk.m@listData)
-rownames(temp.m) = res.shrunk.m@rownames
-temp = temp.m
+temp_y = as.data.frame(res_shrunk_y@listData)
+rownames(temp_y) = res_shrunk_y@rownames
+temp_m = as.data.frame(res_shrunk_m@listData)
+rownames(temp_m) = res_shrunk_m@rownames
+temp = temp_m
 
 #you data should be different than the fake generated values
 p_fake <- rbeta(21274, 1,1)
 hist(p_fake, ylim=c (0,2500))
-hist(res.shrunk.y$pvalue)
-hist(res.shrunk.m$pvalue)
-plotCounts(all.data2,gene = "AT4G01390", intgroup = "group",pch = 20)
+hist(res_shrunk_y$pvalue)
+hist(res_shrunk_m$pvalue)
+plotCounts(allData,gene = "AT4G01390", intgroup = "group",pch = 20)
 ```
 
 ## Hierarchical Clustering
@@ -533,38 +533,38 @@ plotCounts(all.data2,gene = "AT4G01390", intgroup = "group",pch = 20)
 
 #Make a dataframe with the average normailized count number for each of the samples
 library(NMF)
-all.data2 = estimateSizeFactors(all.data2)
-sizeFactors(all.data2) 
-treatcounts = cbind(rowMeans(counts(all.data2,normalized = T)[,1:3]),
-                    rowMeans(counts(all.data2,normalized = T)[,4:6]),
-                    rowMeans(counts(all.data2,normalized = T)[,7:9]),
-                    rowMeans(counts(all.data2,normalized = T)[,10:12]),
-                    rowMeans(counts(all.data2,normalized = T)[,13:15]),
-                    rowMeans(counts(all.data2,normalized = T)[,16:18]),
-                    rowMeans(counts(all.data2,normalized = T)[,19:21]),
-                    rowMeans(counts(all.data2,normalized = T)[,22:24]),
-                    rowMeans(counts(all.data2,normalized = T)[,25:27]),
-                    rowMeans(counts(all.data2,normalized = T)[,28:30]),
-                    rowMeans(counts(all.data2,normalized = T)[,31:33]),
-                    rowMeans(counts(all.data2,normalized = T)[,34:36]))
-rownames(treatcounts) = rownames(counts(all.data2,normalized = T)) #Tags each row with appropriate accession number
+allData = estimateSizeFactors(allData)
+sizeFactors(allData) 
+treatcounts = cbind(rowMeans(counts(allData,normalized = T)[,1:3]),
+                    rowMeans(counts(allData,normalized = T)[,4:6]),
+                    rowMeans(counts(allData,normalized = T)[,7:9]),
+                    rowMeans(counts(allData,normalized = T)[,10:12]),
+                    rowMeans(counts(allData,normalized = T)[,13:15]),
+                    rowMeans(counts(allData,normalized = T)[,16:18]),
+                    rowMeans(counts(allData,normalized = T)[,19:21]),
+                    rowMeans(counts(allData,normalized = T)[,22:24]),
+                    rowMeans(counts(allData,normalized = T)[,25:27]),
+                    rowMeans(counts(allData,normalized = T)[,28:30]),
+                    rowMeans(counts(allData,normalized = T)[,31:33]),
+                    rowMeans(counts(allData,normalized = T)[,34:36]))
+rownames(treatcounts) = rownames(counts(allData,normalized = T)) #Tags each row with appropriate accession number
 colnames(treatcounts) = c("m:mg:0h","m:mg:12h","m:mg:24h","m:pst:0h","m:pst:12h","m:pst:24h","y:mg:0h","y:mg:12h","y:mg:24h","y:pst:0h","y:pst:12h","y:pst:24h")
 treatcounts = as.data.frame(treatcounts)
 write.csv(treatcounts,"meancounts.csv")
 
 #Same thing as above but for the standard deviations for each of the treatment types
-std = cbind(rowSds(counts(all.data2,normalized = T)[,1:3]),
-                    rowSds(counts(all.data2,normalized = T)[,4:6]),
-                    rowSds(counts(all.data2,normalized = T)[,7:9]),
-                    rowSds(counts(all.data2,normalized = T)[,10:12]),
-                    rowSds(counts(all.data2,normalized = T)[,13:15]),
-                    rowSds(counts(all.data2,normalized = T)[,16:18]),
-                    rowSds(counts(all.data2,normalized = T)[,19:21]),
-                    rowSds(counts(all.data2,normalized = T)[,22:24]),
-                    rowSds(counts(all.data2,normalized = T)[,25:27]),
-                    rowSds(counts(all.data2,normalized = T)[,28:30]),
-                    rowSds(counts(all.data2,normalized = T)[,31:33]),
-                    rowSds(counts(all.data2,normalized = T)[,34:36]))
+std = cbind(rowSds(counts(allData,normalized = T)[,1:3]),
+                    rowSds(counts(allData,normalized = T)[,4:6]),
+                    rowSds(counts(allData,normalized = T)[,7:9]),
+                    rowSds(counts(allData,normalized = T)[,10:12]),
+                    rowSds(counts(allData,normalized = T)[,13:15]),
+                    rowSds(counts(allData,normalized = T)[,16:18]),
+                    rowSds(counts(allData,normalized = T)[,19:21]),
+                    rowSds(counts(allData,normalized = T)[,22:24]),
+                    rowSds(counts(allData,normalized = T)[,25:27]),
+                    rowSds(counts(allData,normalized = T)[,28:30]),
+                    rowSds(counts(allData,normalized = T)[,31:33]),
+                    rowSds(counts(allData,normalized = T)[,34:36]))
 std = as.data.frame(std)
 colnames(std) = colnames(treatcounts)
 rownames(std) = rownames(treatcounts)
@@ -572,11 +572,11 @@ write.csv(std,"stdcounts.csv")
 
 
 ##Log of the counts
-log.norm.counts <- log2(treatcounts+ 1) #+1 to stop NAs from appearing incase a gene has 0 counts
+log_norm_counts <- log2(treatcounts+ 1) #+1 to stop NAs from appearing incase a gene has 0 counts
 
 #Takes a DESeq2 result data frame and turns it into a usable table
-sigGenes = as.data.frame(res.shrunk.24h@listData)
-rownames(sigGenes) = res.shrunk.24h@rownames
+sigGenes = as.data.frame(res_shrunk_24h@listData)
+rownames(sigGenes) = res_shrunk_24h@rownames
 
 # sigGenes.12h = filter(sigGenes.12h, padj<0.05&abs(log2FoldChange)>0.58) #1.5 fold diff
 sig = sigGenes[abs(sigGenes$log2FoldChange) > 1,]$padj #Genes that have a linear fold change >2 are kept
@@ -588,20 +588,20 @@ sig = sig[sig<0.05] #Keep genes with p-val <0.05
 sub_24 = c(9,3,12,6) #samples collected at 24 hpi
 sub_12 =c(8,2,11,5) #samples at 12 hpi
 sub_0 = c(7,1,10,4) #Samples at 0 hpi
-model.graph = c(7:9,1:3,10:12,4:6) #in order M mock 0-24 hpi, M Pst 0-24 hpi, young mock 0-24 hpi, young pst 0-24 hpi
+model_graph = c(7:9,1:3,10:12,4:6) #in order M mock 0-24 hpi, M Pst 0-24 hpi, young mock 0-24 hpi, young pst 0-24 hpi
 full = c(7,1,10,4,8,2,11,5,9,3,12,6)
 byage = c(7,10,1,4,8,11,2,5,9,12,3,6)
 full = c(7:12,1:6)
 pst = c(10:12,4:6)
 
-hm.mat_DGEgenes = log.norm.counts[names(sig),sub_24] #Select only genes that were significantly differentially expressed at the for the indicated subgroup (ie 24 hpi)
-rownames(hm.mat_DGEgenes) = objectSymbol[names(sig)] #use object symbol to replace accession #s with gene names where possible
-hm.mat_DGEgenes =hm.mat_DGEgenes[rowSums(hm.mat_DGEgenes)!=0,]
+hm_mat_DGEgenes = log_norm_counts[names(sig),sub_24] #Select only genes that were significantly differentially expressed at the for the indicated subgroup (ie 24 hpi)
+rownames(hm_mat_DGEgenes) = objectSymbol[names(sig)] #use object symbol to replace accession #s with gene names where possible
+hm_mat_DGEgenes =hm_mat_DGEgenes[rowSums(hm_mat_DGEgenes)!=0,]
 
 hmcol = diverge_hcl(20,h = c(240,70),l = c(100,0),c=250,power = 3) #Selecting colours for the hierarchical cluster
 
 #Generating the heatmap
-p=GenAnalysis::aheatmap(hm.mat_DGEgenes,color = hmcol, midpoint = 0,
+p=GenAnalysis::aheatmap(hm_mat_DGEgenes,color = hmcol, midpoint = 0,
                         clusterWithScaledData = T,scale="row", cluster_cols = F,
                         clustering_method = "average", clustering_distance_rows = "euclidean",
       filename = "DEGs24hpi.pdf",border_color = NA , shrink = 1.5,returnTree = T, 
@@ -626,28 +626,28 @@ gene = unique(gene_associations$DB_Object_ID[gene_associations$GO_ID=="GO:000975
 gene = gene[nchar(gene)==9] #Accesion #s are 9 character so anything not that length is booted
 
 #Collect the log counts for genes of interest
-hm.mat_DGEgenes = log.norm.counts[rownames(log.norm.counts) %in% gene,sub_24] #Uses dyplr to select rows of log.norm.counts where were found in the gene list created above
-hm.mat_DGEgenes =hm.mat_DGEgenes[rowSums(hm.mat_DGEgenes)!=0,]
-gene = rownames(hm.mat_DGEgenes)
-rownames(hm.mat_DGEgenes) = objectSymbol[rownames(hm.mat_DGEgenes)]
+hm_mat_DGEgenes = log_norm_counts[rownames(log_norm_counts) %in% gene,sub_24] #Uses dyplr to select rows of log_norm_counts where were found in the gene list created above
+hm_mat_DGEgenes =hm_mat_DGEgenes[rowSums(hm_mat_DGEgenes)!=0,]
+gene = rownames(hm_mat_DGEgenes)
+rownames(hm_mat_DGEgenes) = objectSymbol[rownames(hm_mat_DGEgenes)]
 
 #GenAnalysis Heatmap
 
 #Set the color pallette for heat map
 hmcol = diverge_hcl(20,h = c(240,70),l = c(90,0),c=250,power = 3)
-p=GenAnalysis::aheatmap(hm.mat_DGEgenes,color = hmcol,midpoint = 0,cellwidth = 20,clusterWithScaledData = T,scale="row",cluster_cols = F,clustering_method = "average",clustering_distance_rows = "euclidean",filename = "silly.pdf",border_color = NA
+p=GenAnalysis::aheatmap(hm_mat_DGEgenes,color = hmcol,midpoint = 0,cellwidth = 20,clusterWithScaledData = T,scale="row",cluster_cols = F,clustering_method = "average",clustering_distance_rows = "euclidean",filename = "silly.pdf",border_color = NA
          , shrink = 1.5,returnTree = T,show_rownames = T,show_colnames = T #required for the next step
          )
 
 lab=gene[p$tree_row$order] #basically get the names of the genes and the order they are in the heatmap 
 
-# NMF::aheatmap(hm.mat_DGEgenes,scale = "none", Rowv =T, Colv = NA, ##NMF heatmap
+# NMF::aheatmap(hm_mat_DGEgenes,scale = "none", Rowv =T, Colv = NA, ##NMF heatmap
 #          color = hmcol, #distfun= "euclidean",
 #          treeheight = 80,#hclustfun = "average",
 #          cellwidth = 20,
 #        # ,filename="gilly.pdf" #,cellheight = 10
 # )
-#sigGenes = res.y
+#sigGenes = res_y
 
 sigGenes = sigGenes[rownames(sigGenes)%in% lab,] #this is a handy way to collect  significant genes and rearrange them at the same time using dpylr
 sigGenes$pvalue = as.integer( sigGenes$padj<0.05)
@@ -663,7 +663,7 @@ GenAnalysis::aheatmap(cbind(1,yet),color = hmcol,cellwidth = 20,scale="none",clu
          , shrink = 1.5 #required for the next step
          )
 
-plotCounts(all.data2, 
+plotCounts(allData, 
            gene = "AT2G04550",
            intgroup="group",
            pch = 20, col = "red")
@@ -676,16 +676,16 @@ plotCounts(all.data2,
 #An old way of make a heatmap
 
 library(NMF)
-log.norm.counts <- log2(counts(all.data2, normalized=TRUE) + 1)
-res_mVa_12h <- results(all.data2, contrast = c("group", "mpst24", "mmg24"), alpha = 0.05, pAdjustMethod="BH")
+log_norm_counts <- log2(counts(allData, normalized=TRUE) + 1)
+res_mVa_12h <- results(allData, contrast = c("group", "mpst24", "mmg24"), alpha = 0.05, pAdjustMethod="BH")
 summary( res_mVa_12h )
 plotMA( res_mVa_12h , ylim =c(-5,5))
 res_mVa_12h  <-  res_mVa_12h [order( res_mVa_12h$padj),]
 gene = rownames( res_mVa_12h[1:20,])
 DGEgenes = subset(res_mVa_12h,padj<0.05)
 DGEgenes = rownames(subset(DGEgenes,abs( log2FoldChange)>2))
-hm.mat_DGEgenes = log.norm.counts[DGEgenes,sub.24]
-aheatmap(hm.mat_DGEgenes, Rowv = T, Colv = T, distfun= "euclidean",treeheight = 20,hclustfun = "average", scale = "row", cellwidth = 40)
+hm_mat_DGEgenes = log_norm_counts[DGEgenes,sub_24]
+aheatmap(hm_mat_DGEgenes, Rowv = T, Colv = T, distfun= "euclidean",treeheight = 20,hclustfun = "average", scale = "row", cellwidth = 40)
 
 p_fake <- rbeta(32833, 1,1) # you could also use runif(12627,1,1)
 hist(p_fake, ylim=c (0,2500))
@@ -697,21 +697,21 @@ hist(res_mVa_12h$pvalue)
 
 
 ```{r}
-read.counts = read.table(quant_files[1], header=F,row.names = 1)
+read_counts = read.table(quant_files[1], header=F,row.names = 1)
 for (i in 2:length(quant_files)) {
-  read.counts = cbind(read.counts,read.table(quant_files[i],header=F)[2])
+  read_counts = cbind(read_counts,read.table(quant_files[i],header=F)[2])
 }
-colnames(read.counts) = samples
-read.counts =as.data.frame(read.counts)
-read.counts = read.counts[rowSums(read.counts)>100,] #Basically any genes where we got less than 100 reads across all samples are removed
+colnames(read_counts) = samples
+read_counts =as.data.frame(read_counts)
+read_counts = read_counts[rowSums(read_counts)>100,] #Basically any genes where we got less than 100 reads across all samples are removed
 
-base.m0 = rowMeans(read.counts[,1:3])
-base.m12 = rowMeans(read.counts[,4:6])
-base.m24 = rowMeans(read.counts[,7:9])
-base.y0 = rowMeans(read.counts[,19:21])
-base.y12 = rowMeans(read.counts[,22:24])
-base.y24 = rowMeans(read.counts[,25:28])
-read.counts[,c(1:3,10:12)] = read.counts[,c(1:3,10:12)]/base.m0
+base_m0 = rowMeans(read_counts[,1:3])
+base_m12 = rowMeans(read_counts[,4:6])
+base_m24 = rowMeans(read_counts[,7:9])
+base_y0 = rowMeans(read_counts[,19:21])
+base_y12 = rowMeans(read_counts[,22:24])
+base_y24 = rowMeans(read_counts[,25:28])
+read_counts[,c(1:3,10:12)] = read_counts[,c(1:3,10:12)]/base_m0
                19:21,28:31] = 
 read
 ```
@@ -721,66 +721,66 @@ read
 ###Reducing the model method of selecting for important terms
 ```{r}
 
-load.model = formula(~ hpi + hpi:infection + hpi:age+ hpi:infection:age)
-simp <- DESeqDataSetFromHTSeqCount(design.full,design=load.model)
+load_model = formula(~ hpi + hpi:infection + hpi:age+ hpi:infection:age)
+simp <- DESeqDataSetFromHTSeqCount(design_full,design=load_model)
 simp$infection = factor(simp$infection, levels =  c("mg","pst"))
 simp$hpi = factor(simp$hpi, levels = c("0","12","24"))
 simp$age = factor(simp$age,levels = c("y","m"))
-# all.data$group <- factor(paste0(all.data$age,all.data$infection,all.data$hpi))
-# all.data$group = factor(all.data$group, levels = c("ymg0.25","ymg12","ymg24","ypst0.25","ypst12","ypst24","mmg0.25","mmg12","mmg24","mpst0.25","mpst12","mpst24")
+# rawData$group <- factor(paste0(rawData$age,rawData$infection,rawData$hpi))
+# rawData$group = factor(rawData$group, levels = c("ymg0_25","ymg12","ymg24","ypst0.25","ypst12","ypst24","mmg0.25","mmg12","mmg24","mpst0.25","mpst12","mpst24")
 # simp2 = DESeq(simp, test ="LRT", reduced = ~infection +hpi )
 simp2 = DESeq(simp)
 resultsNames(simp2)
 
-res.0h = results(simp2,name = "hpi0.infectionpst.agem")
-res.12h =results(simp2,name = "hpi12.infectionpst.agem")
-res.24h = results(simp2,name = "hpi24.infectionpst.agem")
-res.shrunk.0h = lfcShrink(simp2,res = res.0h,type = "ashr")
-res.shrunk.12h = lfcShrink(simp2,res = res.12h, type="ashr")
-res.shrunk.24h = lfcShrink(simp2,res = res.24h,type="ashr")
+res_0h = results(simp2,name = "hpi0.infectionpst.agem")
+res_12h =results(simp2,name = "hpi12.infectionpst.agem")
+res_24h = results(simp2,name = "hpi24.infectionpst.agem")
+res_shrunk_0h = lfcShrink(simp2,res = res_0h,type = "ashr")
+res_shrunk_12h = lfcShrink(simp2,res = res_12h, type="ashr")
+res_shrunk_24h = lfcShrink(simp2,res = res_24h,type="ashr")
 
-plotMA(res.0h, ylim=c(-3,3)) #before shinkage
-plotMA(res.shrunk.0h,ylim=c(-3,3)) #after
-plotMA(res.12h,ylim=c(-3,3)) #Before shrinkage
-plotMA(res.shrunk.12h, ylim=c(-3,3)) #After shrinkage
-plotMA(res.24h,ylim=c(-3,3)) #Before shrinkage
-plotMA(res.shrunk.24h, ylim=c(-3,3)) #After shrinkage
+plotMA(res_0h, ylim=c(-3,3)) #before shinkage
+plotMA(res_shrunk_0h,ylim=c(-3,3)) #after
+plotMA(res_12h,ylim=c(-3,3)) #Before shrinkage
+plotMA(res_shrunk_12h, ylim=c(-3,3)) #After shrinkage
+plotMA(res_24h,ylim=c(-3,3)) #Before shrinkage
+plotMA(res_shrunk_24h, ylim=c(-3,3)) #After shrinkage
 #Summarizes # of DEGs for each -> same for shrunken values as unshrunken as p-values are calculated before lfcshrinkage
-summary(res.0h)
-summary(res.shrunk.0h)
-summary(res.12h)
-summary(res.shrunk.12h)
-summary(res.24h)
-summary(res.shrunk.24h)
+summary(res_0h)
+summary(res_shrunk_0h)
+summary(res_12h)
+summary(res_shrunk_12h)
+summary(res_24h)
+summary(res_shrunk_24h)
 
 #Top 10 most significantly DE genes
 ## top up regulated genes
-objectSymbol[rownames(tail(res.shrunk.0h[order(res.shrunk.0h$log2FoldChange),],n=30))]
-objectSymbol[rownames(tail(res.shrunk.12h[order(res.shrunk.12h$log2FoldChange),],n=31))]
-objectSymbol[rownames(tail(res.shrunk.24h[order(res.shrunk.24h$log2FoldChange),],n=30))]
+objectSymbol[rownames(tail(res_shrunk_0h[order(res_shrunk_0h$log2FoldChange),],n=30))]
+objectSymbol[rownames(tail(res_shrunk_12h[order(res_shrunk_12h$log2FoldChange),],n=31))]
+objectSymbol[rownames(tail(res_shrunk_24h[order(res_shrunk_24h$log2FoldChange),],n=30))]
 ##top down regulated genes
-objectSymbol[rownames(head(res.shrunk.0h[order(res.shrunk.0h$log2FoldChange),],n=30))]
-objectSymbol[rownames(head(res.shrunk.12h[order(res.shrunk.12h$log2FoldChange),],n=30))]
-objectSymbol[rownames(tail(res.shrunk.24h[order(res.shrunk.24h$log2FoldChange),],n=30))]
+objectSymbol[rownames(head(res_shrunk_0h[order(res_shrunk_0h$log2FoldChange),],n=30))]
+objectSymbol[rownames(head(res_shrunk_12h[order(res_shrunk_12h$log2FoldChange),],n=30))]
+objectSymbol[rownames(tail(res_shrunk_24h[order(res_shrunk_24h$log2FoldChange),],n=30))]
 
 
-objectSymbol[rownames(head(res.shrunk.12h[order(res.shrunk.12h$padj),],n=80))]
+objectSymbol[rownames(head(res_shrunk_12h[order(res_shrunk_12h$padj),],n=80))]
 
-plotCounts(all.data2,gene = "AT4G15920", intgroup = "group",pch = 20)
+plotCounts(allData,gene = "AT4G15920", intgroup = "group",pch = 20)
 
-sigGenes = as.data.frame(res.shrunk.0h@listData)
-rownames(sigGenes) = res.shrunk.0h@rownames
+sigGenes = as.data.frame(res_shrunk_0h@listData)
+rownames(sigGenes) = res_shrunk_0h@rownames
 sigGenes = sigGenes[order(sigGenes$padj),]
-sigGenes.up = sigGenes[sigGenes$log2FoldChange>0&sigGenes$padj<0.05,]
-sigGenes.up=sigGenes.up[complete.cases(sigGenes.up),]
-sigGenes.up = cbind(unname(geneName(rownames(sigGenes.up))),sigGenes.up)
+sigGenes_up = sigGenes[sigGenes$log2FoldChange>0&sigGenes$padj<0.05,]
+sigGenes_up=sigGenes_up[complete.cases(sigGenes_up),]
+sigGenes_up = cbind(unname(geneName(rownames(sigGenes_up))),sigGenes_up)
 
 geneName = function(x){
   y = objectSymbol[x]
   y[is.na(y)] = x[is.na(y)]
   return(y)
 }
-# sigGenes.12h = filter(sigGenes.12h, padj<0.05&abs(log2FoldChange)>0.58) #1.5 fold diff
+# sigGenes_12h = filter(sigGenes_12h, padj<0.05&abs(log2FoldChange)>0.58) #1.5 fold diff
 up = sigGenes[sigGenes$log2FoldChange > 0,]$padj 
 names(up) <- rownames(sigGenes[sigGenes$log2FoldChange > 0,]) 
 up <- up[complete.cases(up)]
@@ -798,7 +798,7 @@ gene_filter <- function(allScore){
 }
 ont = "BP"
 
-tg.up <- new("topGOdata",
+tg_up <- new("topGOdata",
               description = "Gene Ontology up - PVALUE", 
               ontology = ont, 
               allGenes = up,  
@@ -807,7 +807,7 @@ tg.up <- new("topGOdata",
               annotationFun = annFUN.gene2GO, 
               gene2GO = gene_GO) 
 
-tg.dwn <- new("topGOdata",
+tg_dwn <- new("topGOdata",
               description = "Gene Ontology Young plants - PVALUE", 
               ontology = ont, 
               allGenes =dwn,  
@@ -818,52 +818,52 @@ tg.dwn <- new("topGOdata",
 
 #Group Testing
 fisher_test <- new("classicCount", testStatistic = GOFisherTest, name = "fisher_test")
-fisher.up <- getSigGroups(tg.up, fisher_test)
-fisher.dwn = getSigGroups(tg.dwn, fisher_test)
+fisher_up <- getSigGroups(tg_up, fisher_test)
+fisher_dwn = getSigGroups(tg_dwn, fisher_test)
 
-fisher.up
-fisher.dwn
+fisher_up
+fisher_dwn
 
 
 par(cex = 0.2)
-showSigOfNodes(tg.up, score(fisher.up), firstSigNodes = 30, useInfo = 'all')
-showSigOfNodes(tg.dwn, score(fisher.dwn), firstSigNodes = 30, useInfo = 'all')
+showSigOfNodes(tg_up, score(fisher_up), firstSigNodes = 30, useInfo = 'all')
+showSigOfNodes(tg_dwn, score(fisher_dwn), firstSigNodes = 30, useInfo = 'all')
 
 #Lets see the most significant ones
-up.table <- GenTable(tg.up, Fisher = fisher.up, topNodes = 110)
-dwn.table = GenTable(tg.dwn,Fisher = fisher.dwn,topNodes = 128)
+up_table <- GenTable(tg_up, Fisher = fisher_up, topNodes = 110)
+dwn_table = GenTable(tg_dwn,Fisher = fisher_dwn,topNodes = 128)
 
-up.table
-dwn.table
+up_table
+dwn_table
 
-gtoi_up = up.table[c(1),]
-gtoi_dwn = dwn.table[c(3),]
+gtoi_up = up_table[c(1),]
+gtoi_dwn = dwn_table[c(3),]
 
-tg.names.up = names(up[up<0.05])
-tg.names.dwn = names(dwn[dwn<0.05])
-allGO.up = genesInTerm(tg.up)
-allGO.dwn = genesInTerm(tg.dwn)
-sigGenes.up = lapply(allGO.up,function(x) x[x %in% tg.names.up] )
-sigGenes.dwn =lapply(allGO.dwn,function(x) x[x %in% tg.names.dwn] )
+tg_names_up = names(up[up<0.05])
+tg_names_dwn = names(dwn[dwn<0.05])
+allGO_up = genesInTerm(tg_up)
+allGO_dwn = genesInTerm(tg_dwn)
+sigGenes_up = lapply(allGO_up,function(x) x[x %in% tg_names_up] )
+sigGenes_dwn =lapply(allGO_dwn,function(x) x[x %in% tg_names_dwn] )
 
-objectSymbol[sigGenes.up[["GO:0031347"]]]
-objectSymbol[sigGenes.dwn[["GO:0031347"]]]
+objectSymbol[sigGenes_up[["GO:0031347"]]]
+objectSymbol[sigGenes_dwn[["GO:0031347"]]]
 
 gtoi_up
 i = 1
 gtoi_up$Term[i]
-objectSymbol[sigGenes.up[[gtoi_up$GO.ID[i]]]]
+objectSymbol[sigGenes_up[[gtoi_up$GO_ID[i]]]]
 
 gtoi_dwn
 i=1
 gtoi_dwn$Term[i]
-objectSymbol[sigGenes.dwn[[gtoi_dwn$GO.ID[i]]]]
+objectSymbol[sigGenes_dwn[[gtoi_dwn$GO_ID[i]]]]
 
 #To make sure allGO is working
-allGO.up[[gtoi_up$GO.ID[i]]]
-allGO.dwn[[gtoi_dwn$GO.ID[i]]]
+allGO_up[[gtoi_up$GO_ID[i]]]
+allGO_dwn[[gtoi_dwn$GO_ID[i]]]
 
-plotCounts(all.data2, gene = "AT1G12280",intgroup = "group",pch = 20, col = "red")
+plotCounts(allData, gene = "AT1G12280",intgroup = "group",pch = 20, col = "red")
 
 
 ```
@@ -879,114 +879,114 @@ gene_filter <- function(allScore){
 ont = c("BP","MF","CC")
 ont = ont[1]
 
-tg.y.up <- new("topGOdata",
+tg_y_up <- new("topGOdata",
               description = "Gene Ontology Young plants - PVALUE", 
               ontology = ont, 
-              allGenes = y.up,  
+              allGenes = y_up,  
               geneSel = gene_filter, 
               nodeSize = 10, 
               annotationFun = annFUN.gene2GO, 
               gene2GO = gene_GO) 
 
-tg.y.down <- new("topGOdata",
+tg_y_down <- new("topGOdata",
               description = "Gene Ontology Young plants - PVALUE", 
               ontology = ont, 
-              allGenes = y.down,  
+              allGenes = y_down,  
               geneSel = gene_filter, 
               nodeSize = 10, 
               annotationFun = annFUN.gene2GO, 
               gene2GO = gene_GO) 
-tg.m.up <- new("topGOdata",
+tg_m_up <- new("topGOdata",
               description = "Gene Ontology mature plants - PVALUE", 
               ontology = ont, 
-              allGenes = m.up,  
+              allGenes = m_up,  
               geneSel = gene_filter, 
               nodeSize = 10, 
               annotationFun = annFUN.gene2GO, 
               gene2GO = gene_GO) 
-tg.m.down <- new("topGOdata",
+tg_m_down <- new("topGOdata",
               description = "Gene Ontology mature plants - PVALUE", 
               ontology = ont, 
-              allGenes = m.down,  
+              allGenes = m_down,  
               geneSel = gene_filter, 
               nodeSize = 10, 
               annotationFun = annFUN.gene2GO, 
               gene2GO = gene_GO) 
 #Group Testing
 fisher_test <- new("classicCount", testStatistic = GOFisherTest, name = "fisher_test")
-fisher.y.up <- getSigGroups(tg.y.up, fisher_test)
-fisher.y.down = getSigGroups(tg.y.down, fisher_test)
-fisher.m.up = getSigGroups(tg.m.up, fisher_test)
-fisher.m.down = getSigGroups(tg.m.down, fisher_test)
+fisher_y_up <- getSigGroups(tg_y_up, fisher_test)
+fisher_y_down = getSigGroups(tg_y_down, fisher_test)
+fisher_m_up = getSigGroups(tg_m_up, fisher_test)
+fisher_m_down = getSigGroups(tg_m_down, fisher_test)
 
-fisher.y.up
-fisher.y.down
-fisher.m.up
-fisher.m.down
+fisher_y_up
+fisher_y_down
+fisher_m_up
+fisher_m_down
 
 #Lets see the most significant ones
-y.up.table <- GenTable(tg.y.up, Fisher = fisher.y.up, topNodes = 60)
-y.up.table
-m.up.table <- GenTable(tg.m.up, Fisher = fisher.m.up, topNodes = 20)
-m.up.table
+y_up_table <- GenTable(tg_y_up, Fisher = fisher_y_up, topNodes = 60)
+y_up_table
+m_up_table <- GenTable(tg_m_up, Fisher = fisher_m_up, topNodes = 20)
+m_up_table
 
-y.down.table <- GenTable(tg.y.down, Fisher = fisher.y.down, topNodes = 60)
-y.down.table
-m.down.table <- GenTable(tg.m.down, Fisher = fisher.m.down, topNodes = 100)
-m.down.table
+y_down_table <- GenTable(tg_y_down, Fisher = fisher_y_down, topNodes = 60)
+y_down_table
+m_down_table <- GenTable(tg_m_down, Fisher = fisher_m_down, topNodes = 100)
+m_down_table
 
 par(cex = 0.2)
-showSigOfNodes(tg.y.up, score(fisher.y.up), firstSigNodes = 40, useInfo = 'all')
-showSigOfNodes(tg.m.up, score(fisher.m.up), firstSigNodes = 20, useInfo = 'all')
+showSigOfNodes(tg_y_up, score(fisher_y_up), firstSigNodes = 40, useInfo = 'all')
+showSigOfNodes(tg_m_up, score(fisher_m_up), firstSigNodes = 20, useInfo = 'all')
 
-showSigOfNodes(tg.y.down, score(fisher.y.down), firstSigNodes = 30, useInfo = 'all')
-showSigOfNodes(tg.m.down, score(fisher.m.down), firstSigNodes = 10, useInfo = 'all')
+showSigOfNodes(tg_y_down, score(fisher_y_down), firstSigNodes = 30, useInfo = 'all')
+showSigOfNodes(tg_m_down, score(fisher_m_down), firstSigNodes = 10, useInfo = 'all')
 
 #if the go term is up-regulated
-tg.names.y = names(y.up[y.up<0.05]) #genesOI
-tg.names.m = names(m.up[m.up<0.05])
-objectSymbol[tg.names.y[tg.names.y %in% tg.names.m]] #Genes similarly expressed
-allGO.y = genesInTerm(tg.y.up)
-allGO.m = genesInTerm(tg.m.up)
+tg_names_y = names(y_up[y_up<0.05]) #genesOI
+tg_names_m = names(m_up[m_up<0.05])
+objectSymbol[tg_names_y[tg_names_y %in% tg_names_m]] #Genes similarly expressed
+allGO_y = genesInTerm(tg_y_up)
+allGO_m = genesInTerm(tg_m_up)
 #if the go term is down regulated
-tg.names.y = names(y.down[y.down<0.05]) #genesOI
-tg.names.m = names(m.down[m.down<0.05])
-objectSymbol[tg.names.y[tg.names.y %in% tg.names.m]]
-allGO.y = genesInTerm(tg.y.down)
-allGO.m = genesInTerm(tg.m.down)
+tg_names_y = names(y_down[y_down<0.05]) #genesOI
+tg_names_m = names(m_down[m_down<0.05])
+objectSymbol[tg_names_y[tg_names_y %in% tg_names_m]]
+allGO_y = genesInTerm(tg_y_down)
+allGO_m = genesInTerm(tg_m_down)
 
-sigGenes.y = lapply(allGO.y,function(x) x[x %in% tg.names.y] )
-sigGenes.m =lapply(allGO.m,function(x) x[x %in% tg.names.m] )
+sigGenes_y = lapply(allGO_y,function(x) x[x %in% tg_names_y] )
+sigGenes_m =lapply(allGO_m,function(x) x[x %in% tg_names_m] )
 
-tg.names.up = names(y.up[y.up<0.05])
-tg.names.dwn = names(y.down[y.down<0.05])
-allGO.up = genesInTerm(tg.y.up)
-allGO.dwn = genesInTerm(tg.y.down)
+tg_names_up = names(y_up[y_up<0.05])
+tg_names_dwn = names(y_down[y_down<0.05])
+allGO_up = genesInTerm(tg_y_up)
+allGO_dwn = genesInTerm(tg_y_down)
 
-sigGenes.up = lapply(allGO.up,function(x) x[x %in% tg.names.up] )
-sigGenes.dwn =lapply(allGO.dwn,function(x) x[x %in% tg.names.dwn] )
+sigGenes_up = lapply(allGO_up,function(x) x[x %in% tg_names_up] )
+sigGenes_dwn =lapply(allGO_dwn,function(x) x[x %in% tg_names_dwn] )
 
 goTermOI = "GO:0005524"
 
-objectSymbol[sigGenes.up[[goTermOI]]]
-objectSymbol[sigGenes.dwn[[goTermOI]]] ()
+objectSymbol[sigGenes_up[[goTermOI]]]
+objectSymbol[sigGenes_dwn[[goTermOI]]] ()
 
-allGO.y[[goTermOI]]
-allGO.m[[goTermOI]]
-objectSymbol[sigGenes.y[[goTermOI]]]
-objectSymbol[sigGenes.m[[goTermOI]]]
-length(objectSymbol[sigGenes.y[[goTermOI]]]) / length(allGO.y[[goTermOI]])
-length(objectSymbol[sigGenes.m[[goTermOI]]]) / length(allGO.m[[goTermOI]])
+allGO_y[[goTermOI]]
+allGO_m[[goTermOI]]
+objectSymbol[sigGenes_y[[goTermOI]]]
+objectSymbol[sigGenes_m[[goTermOI]]]
+length(objectSymbol[sigGenes_y[[goTermOI]]]) / length(allGO_y[[goTermOI]])
+length(objectSymbol[sigGenes_m[[goTermOI]]]) / length(allGO_m[[goTermOI]])
 
-lapply(sigGenes.m[[goTermOI]],function(x) x[x %in% sigGenes.y[[goTermOI]]])
+lapply(sigGenes_m[[goTermOI]],function(x) x[x %in% sigGenes_y[[goTermOI]]])
 
 #Common genes in this category that are upregulated
-objectSymbol[sigGenes.y[[goTermOI]][sigGenes.y[[goTermOI]] %in% sigGenes.m[[goTermOI]]]]
-objectSymbol[sigGenes.m[[goTermOI]][sigGenes.m[[goTermOI]] %in% sigGenes.y[[goTermOI]]]]
+objectSymbol[sigGenes_y[[goTermOI]][sigGenes_y[[goTermOI]] %in% sigGenes_m[[goTermOI]]]]
+objectSymbol[sigGenes_m[[goTermOI]][sigGenes_m[[goTermOI]] %in% sigGenes_y[[goTermOI]]]]
 #Genes in young in old goTerm group that are not in the other
-objectSymbol[sigGenes.y[[goTermOI]][!sigGenes.y[[goTermOI]] %in% sigGenes.m[[goTermOI]]]]
-objectSymbol[sigGenes.m[[goTermOI]][!sigGenes.m[[goTermOI]] %in% sigGenes.y[[goTermOI]]]]
+objectSymbol[sigGenes_y[[goTermOI]][!sigGenes_y[[goTermOI]] %in% sigGenes_m[[goTermOI]]]]
+objectSymbol[sigGenes_m[[goTermOI]][!sigGenes_m[[goTermOI]] %in% sigGenes_y[[goTermOI]]]]
 par(cex=1)
-plotCounts(all.data2, gene = "AT3G45640",intgroup = "group",pch = 20, col = "red")
+plotCounts(allData, gene = "AT3G45640",intgroup = "group",pch = 20, col = "red")
 
 ```
